@@ -1,0 +1,64 @@
+# QuoteFlow — Greenscape Pro Proposal Copilot
+
+QuoteFlow converts messy landscape site-walk notes into a structured, priced, and guarded proposal draft. The workflow is deliberately **human-in-the-loop**: AI prepares the work, deterministic code validates and totals it, and Marcus approves before an external event is emitted.
+
+## Why This Agent
+
+Greenscape Pro is spending $25,000–$30,000 per month on acquisition and has adequate lead volume. Its constraint is the 6–9-day proposal cycle. Approximately 35–40% of qualified leads are lost to faster competitors. QuoteFlow targets that revenue leak before adding more demand.
+
+## Features
+
+- Real `gpt-5-mini` structured-output call from server-side code.
+- Schema validation, deterministic cent-based totals, and range guardrails.
+- Persistent MySQL/TiDB storage for proposals, versions, status, model metadata, and delivery attempts.
+- Editable scope, pricing, assumptions, exclusions, open questions, and customer message.
+- Human approval gate; high-severity flags block sending.
+- Configurable outbound webhook designed for GoHighLevel (GHL).
+- Redacted live ntfy fallback so reviewers can test a real external integration without client credentials.
+- Responsive operations dashboard with approval and integration audit states.
+
+## Architecture
+
+```text
+Site-walk notes → tRPC API → gpt-5-mini JSON schema → Zod validation
+→ deterministic totals + guardrails → persistent database → human review
+→ approval → outbound GHL-compatible webhook → integration audit log
+```
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the detailed flow and production hardening plan. See [STRATEGY.md](./STRATEGY.md) for the opinionated five-agent prioritization.
+
+## Local Setup
+
+```bash
+cp .env.example .env
+pnpm install
+pnpm db:push
+pnpm dev
+```
+
+Set `DATABASE_URL` to a MySQL-compatible database. Set `OPENAI_API_KEY` to call OpenAI directly, or run in the managed environment with the injected LLM gateway credentials. Set `OUTBOUND_WEBHOOK_URL` to a GHL inbound webhook or an inspection endpoint such as Webhook.site.
+
+## Verification
+
+```bash
+pnpm check
+pnpm test
+pnpm build
+```
+
+The tests cover deterministic arithmetic, approval guardrails, and the outbound payload boundary. The public assessment deployment intentionally does not require login so evaluators can test it immediately. A production deployment would enable the scaffolded authentication and role-based procedures.
+
+## AI Cost
+
+The app uses `gpt-5-mini`, currently priced at $0.25 per million input tokens and $2.00 per million output tokens through the verified model catalog. A representative 4,000-input/1,500-output generation costs approximately **$0.004** before platform overhead. The workflow uses one model call per generated proposal; edits and approvals do not call the model.
+
+## Known Assessment Boundaries
+
+The pricing reference is a representative subset because the client's 200+ line pricing spreadsheet was not included. Production would import that catalog and match line-item identifiers rather than use model-suggested allowances. The production webhook would use GHL credentials and idempotent retries; the assessment uses a real but redacted external notifier by default. PDF rendering and e-signature are intentionally downstream of the validated proposal core.
+
+## Repository Documents
+
+- [STRATEGY.md](./STRATEGY.md) — ranked five-agent strategy.
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — system design and tradeoffs.
+- [WALKTHROUGH.md](./WALKTHROUGH.md) — five-minute recording script.
+- [.env.example](./.env.example) — cloneable configuration contract.
