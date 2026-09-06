@@ -2,9 +2,9 @@
 
 ## Links
 
-- **GitHub repository:** _Added after repository publication_
-- **Deployed application:** _Added after production publication_
-- **Recorded walkthrough:** _Added after recording upload_
+- **GitHub repository:** https://github.com/denniarems/greenscape-quoteflow
+- **Deployed application:** _Publish the validated checkpoint, then add the resulting `manus.space` URL here._
+- **Recorded walkthrough:** https://files.manuscdn.com/user_upload_by_module/session_file/310419663031577017/ukwuAacQUPiRboUb.mp4
 - **Strategy:** [STRATEGY.md](./STRATEGY.md)
 
 ## Reasoning
