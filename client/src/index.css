@@ -3,6 +3,42 @@
 
 @custom-variant dark (&:is(.dark *));
 
+:root {
+  --radius: 0.75rem;
+  --background: oklch(0.978 0.009 86);
+  --foreground: oklch(0.245 0.028 161);
+  --card: oklch(0.996 0.003 85);
+  --card-foreground: oklch(0.245 0.028 161);
+  --popover: oklch(0.996 0.003 85);
+  --popover-foreground: oklch(0.245 0.028 161);
+  --primary: oklch(0.34 0.07 157);
+  --primary-foreground: oklch(0.985 0.008 92);
+  --secondary: oklch(0.944 0.021 84);
+  --secondary-foreground: oklch(0.29 0.04 155);
+  --muted: oklch(0.945 0.012 88);
+  --muted-foreground: oklch(0.51 0.025 154);
+  --accent: oklch(0.906 0.036 82);
+  --accent-foreground: oklch(0.31 0.05 155);
+  --destructive: oklch(0.59 0.2 28);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.88 0.015 85);
+  --input: oklch(0.86 0.017 85);
+  --ring: oklch(0.48 0.08 155);
+  --chart-1: oklch(0.45 0.09 156);
+  --chart-2: oklch(0.62 0.14 53);
+  --chart-3: oklch(0.67 0.08 83);
+  --chart-4: oklch(0.56 0.07 210);
+  --chart-5: oklch(0.54 0.11 22);
+  --sidebar: oklch(0.99 0.005 87);
+  --sidebar-foreground: oklch(0.245 0.028 161);
+  --sidebar-primary: oklch(0.34 0.07 157);
+  --sidebar-primary-foreground: oklch(0.985 0.008 92);
+  --sidebar-accent: oklch(0.944 0.021 84);
+  --sidebar-accent-foreground: oklch(0.29 0.04 155);
+  --sidebar-border: oklch(0.88 0.015 85);
+  --sidebar-ring: oklch(0.48 0.08 155);
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -40,138 +76,61 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-}
-
-:root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
-}
-
-.dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [type="button"]:not(:disabled),
-  [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
-  a[href],
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled) {
-    @apply cursor-pointer;
-  }
+  * { @apply border-border outline-ring/50; }
+  html { background: var(--background); }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+  button, [role="button"] { cursor: pointer; }
+  button:active:not(:disabled) { transform: scale(0.98); }
 }
 
-@layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
-  }
+.font-display { font-family: "Newsreader", ui-serif, Georgia, serif; }
+.shadow-soft { box-shadow: 0 12px 36px rgba(37, 58, 48, 0.075), 0 2px 8px rgba(37, 58, 48, 0.035); }
+.section-kicker { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted-foreground); }
 
-  .flex {
-    min-height: 0;
-    min-width: 0;
-  }
+.app-header {
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+  background: color-mix(in oklab, var(--background) 92%, transparent);
+  backdrop-filter: blur(18px);
+}
+.brand-mark {
+  display: grid; height: 2.35rem; width: 2.35rem; place-items: center; border-radius: 0.85rem;
+  color: var(--primary-foreground); background: var(--primary); box-shadow: 0 8px 20px rgba(26, 74, 58, 0.2);
+}
+.app-shell { display: grid; min-height: calc(100vh - 4rem); grid-template-columns: 330px minmax(0, 1fr); }
+.pipeline-panel { display: flex; min-height: calc(100vh - 4rem); flex-direction: column; border-right: 1px solid var(--border); background: var(--sidebar); }
+.pipeline-list { max-height: calc(100vh - 300px); overflow-y: auto; }
+.metric-card { background: color-mix(in oklab, var(--secondary) 60%, white); }
+.proposal-row { color: var(--foreground); }
+.proposal-row:hover { background: color-mix(in oklab, var(--secondary) 65%, transparent); }
+.proposal-row.active { background: var(--primary); color: var(--primary-foreground); box-shadow: 0 8px 20px rgba(28, 73, 56, 0.16); }
+.proposal-row.active .text-muted-foreground { color: color-mix(in oklab, var(--primary-foreground) 68%, transparent); }
 
-  @media (min-width: 640px) {
-    .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
-      padding-right: 1.5rem;
-    }
-  }
+.flow-step { display: flex; align-items: center; gap: 0.75rem; border-radius: 0.8rem; background: color-mix(in oklab, var(--card) 85%, transparent); padding: 0.8rem; color: var(--muted-foreground); }
+.flow-step > span { display: grid; height: 1.7rem; width: 1.7rem; flex: none; place-items: center; border-radius: 999px; background: var(--muted); font-size: 0.7rem; font-weight: 800; }
+.flow-step b { display: block; font-size: 0.75rem; color: var(--foreground); }
+.flow-step small { display: block; margin-top: 0.1rem; font-size: 0.65rem; }
+.flow-step.complete > span { background: var(--primary); color: var(--primary-foreground); }
 
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: 2rem; /* 32px - desktop padding */
-      padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
-    }
-  }
+input, textarea { background: color-mix(in oklab, var(--card) 96%, var(--secondary)); }
+
+@media (max-width: 1023px) {
+  .app-shell { grid-template-columns: 1fr; }
+  .pipeline-panel { min-height: 0; border-right: 0; border-bottom: 1px solid var(--border); }
+  .pipeline-list { display: flex; max-height: none; gap: 0.4rem; overflow-x: auto; padding-top: 0.5rem; }
+  .pipeline-list > * { min-width: 280px; }
+}
+
+@media (max-width: 640px) {
+  .app-header { height: 3.75rem; }
+  .app-shell { min-height: calc(100vh - 3.75rem); }
+  .pipeline-panel > div:first-child { display: none; }
+  .pipeline-list { padding: 0.55rem; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  button, .proposal-row { transition-duration: 160ms; transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1); }
 }
