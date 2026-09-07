@@ -5,10 +5,10 @@
 ```mermaid
 flowchart LR
   A[Site-walk notes] --> B[tRPC API]
-  B --> C[gpt-5-mini structured generation]
+  B --> C[OpenRouter structured generation]
   C --> D[Schema validation]
   D --> E[Deterministic pricing + guardrails]
-  E --> F[(MySQL / TiDB)]
+  E --> F[(PostgreSQL / NeonDB)]
   F --> G[Human review and edits]
   G --> H{Approve?}
   H -->|No| G
@@ -23,9 +23,9 @@ flowchart LR
 
 **Structured AI output with deterministic totals.** The LLM returns typed scope items, assumptions, questions, and risk flags. The server validates the JSON and calculates every line and total from numeric quantity and unit-price fields. The model never supplies the final arithmetic.
 
-**Persistent lifecycle and audit trail.** Proposals and outbound integration attempts are stored in a managed SQL database. Approval state, AI model, version, timestamps, generated content, and delivery response remain reviewable after refresh or redeploy.
+**Persistent lifecycle and audit trail.** Proposals and outbound integration attempts are stored in a managed PostgreSQL/Neon database. Approval state, AI model, version, timestamps, generated content, and delivery response remain reviewable after refresh or redeploy.
 
-**Portable AI integration.** The deployed app uses the platform’s server-side LLM gateway. A direct OpenAI API-key fallback is documented for local clones. `gpt-5-mini` was selected because the task is structured extraction and synthesis rather than open-ended strategy; current model pricing is $0.25 per million input tokens and $2.00 per million output tokens. A representative 4,000-input/1,500-output request costs approximately $0.004 before platform overhead.
+**Portable AI integration.** The app integrates with OpenRouter for direct model calls (defaulting to `openai/gpt-4o-mini`, configurable via `OPENROUTER_MODEL`), with fallback to the platform's server-side LLM gateway when deployed. `openai/gpt-4o-mini` is selected because the task is structured extraction and synthesis rather than open-ended strategy; current model pricing is ~$0.15 per million input tokens and ~$0.60 per million output tokens. A representative 4,000-input/1,500-output request costs approximately $0.0015 before platform overhead.
 
 **External integration without private client credentials.** Approval posts to a configurable `OUTBOUND_WEBHOOK_URL`, designed for a GHL inbound webhook in production. The public assessment deployment falls back to a redacted ntfy notification topic so reviewers can exercise a real external call without access to the client’s GHL account.
 

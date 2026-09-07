@@ -12,7 +12,7 @@ That is why the Quote-to-Win Proposal Copilot ranks first. The next two agents a
 
 This is QuoteFlow. The left side shows the persistent proposal queue, pipeline value, and approval status. I will open the new-proposal workflow, which is preloaded with a realistic Phoenix site walk: a paver patio, pergola, landscape refresh, irrigation, and lighting. The notes intentionally include uncertainties such as homeowner association approval, pergola engineering, and limited side access.
 
-When I generate, the server makes a real `gpt-5-mini` call with a strict JSON schema. The model must return structured line items, assumptions, exclusions, open questions, risk flags, and a customer message. The result is validated before it reaches the database. Pricing totals are calculated in code from integer cents; the model never supplies the final arithmetic.
+When I generate, the server makes a real OpenRouter structured call (defaulting to `openai/gpt-4o-mini`) with a strict JSON schema. The model must return structured line items, assumptions, exclusions, open questions, risk flags, and a customer message. The result is validated before it reaches the database. Pricing totals are calculated in code from integer cents; the model never supplies the final arithmetic.
 
 The generated draft is now in the review workspace. Marcus can edit the summary, every quantity and unit price, assumptions, exclusions, open questions, and the customer cover note. The source notes remain beside the draft for traceability. The system surfaces warnings rather than hiding uncertainty. High-severity safety or contradiction flags block approval, and a reviewer can explicitly resolve a flag. Any edit creates a new persistent version and must be saved before approval.
 
@@ -24,7 +24,7 @@ Refreshing the page keeps the approved proposal, version, model metadata, totals
 
 ## 3:25–4:05 — Architecture and Cost
 
-The stack is React and TypeScript on the frontend, tRPC and Express on the server, Drizzle with managed MySQL or TiDB for persistence, and a server-side LLM gateway. `gpt-5-mini` is appropriate because this is structured extraction and synthesis, not open-ended strategic reasoning. At current pricing, a representative four-thousand-input and fifteen-hundred-output-token draft costs roughly four-tenths of one cent before platform overhead. Edits and approvals do not call the model.
+The stack is React and TypeScript on the frontend, tRPC and Express on the server, Drizzle with serverless PostgreSQL (NeonDB) for persistence, and OpenRouter for the LLM integration (with gateway fallback). A low-cost structured model like `openai/gpt-4o-mini` is appropriate because this is structured extraction and synthesis, not open-ended strategic reasoning. At current pricing, a representative four-thousand-input and fifteen-hundred-output-token draft costs roughly $0.0015 before platform overhead. Edits and approvals do not call the model.
 
 The repository includes six passing unit tests, type checks, a production build, SQL migrations, a documented environment template, and a real commit history.
 

@@ -8,9 +8,9 @@ Greenscape Pro is spending $25,000–$30,000 per month on acquisition and has ad
 
 ## Features
 
-- Real `gpt-5-mini` structured-output call from server-side code.
+- Real OpenRouter structured-output call from server-side code (default: `openai/gpt-4o-mini`, configurable via `OPENROUTER_MODEL`).
 - Schema validation, deterministic cent-based totals, and range guardrails.
-- Persistent MySQL/TiDB storage for proposals, versions, status, model metadata, and delivery attempts.
+- Persistent NeonDB/PostgreSQL storage for proposals, versions, status, model metadata, and delivery attempts.
 - Editable scope, pricing, assumptions, exclusions, open questions, and customer message.
 - Human approval gate; high-severity flags block sending.
 - Configurable outbound webhook designed for GoHighLevel (GHL).
@@ -20,7 +20,7 @@ Greenscape Pro is spending $25,000–$30,000 per month on acquisition and has ad
 ## Architecture
 
 ```text
-Site-walk notes → tRPC API → gpt-5-mini JSON schema → Zod validation
+Site-walk notes → tRPC API → OpenRouter JSON schema → Zod validation
 → deterministic totals + guardrails → persistent database → human review
 → approval → outbound GHL-compatible webhook → integration audit log
 ```
@@ -29,6 +29,15 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the detailed flow and production ha
 
 ## Local Setup
 
+You can run the interactive setup wizard to automatically walk through configuring OpenRouter, Database, JWT secrets, OAuth, and webhooks:
+
+```bash
+pnpm wizard
+# or: bash scripts/setup-wizard.sh
+```
+
+Or configure manually:
+
 ```bash
 cp .env.example .env
 pnpm install
@@ -36,7 +45,7 @@ pnpm db:push
 pnpm dev
 ```
 
-Set `DATABASE_URL` to a MySQL-compatible database. Set `OPENAI_API_KEY` to call OpenAI directly, or run in the managed environment with the injected LLM gateway credentials. Set `OUTBOUND_WEBHOOK_URL` to a GHL inbound webhook or an inspection endpoint such as Webhook.site.
+Set `DATABASE_URL` to a NeonDB or PostgreSQL database. Set `OPENROUTER_API_KEY` to call OpenRouter directly (defaults to `openai/gpt-4o-mini`, configurable via `OPENROUTER_MODEL`), or run in the managed environment with the injected LLM gateway credentials. Set `OUTBOUND_WEBHOOK_URL` to a GHL inbound webhook or an inspection endpoint such as Webhook.site.
 
 ## Verification
 
@@ -50,7 +59,7 @@ The tests cover deterministic arithmetic, approval guardrails, and the outbound 
 
 ## AI Cost
 
-The app uses `gpt-5-mini`, currently priced at $0.25 per million input tokens and $2.00 per million output tokens through the verified model catalog. A representative 4,000-input/1,500-output generation costs approximately **$0.004** before platform overhead. The workflow uses one model call per generated proposal; edits and approvals do not call the model.
+The app uses `openai/gpt-4o-mini` via OpenRouter (or `gpt-5-mini` on the managed platform gateway), priced at ~$0.15 per million input tokens and ~$0.60 per million output tokens. A representative 4,000-input/1,500-output generation costs approximately **$0.0015** before platform overhead. The workflow uses one model call per generated proposal; edits and approvals do not call the model.
 
 ## Known Assessment Boundaries
 
