@@ -4,7 +4,11 @@ import type { DashboardMetrics } from "@shared/types";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { listIntegrationEvents, listProposalRows } from "./db";
+import {
+  deleteProposalRow,
+  listIntegrationEvents,
+  listProposalRows,
+} from "./db";
 import {
   approveAndDeliver,
   generateAndPersistProposal,
@@ -77,6 +81,9 @@ export const appRouter = router({
     approve: publicProcedure
       .input(z.object({ id: z.number().int().positive() }))
       .mutation(({ input }) => approveAndDeliver(input.id)),
+    delete: publicProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(({ input }) => deleteProposalRow(input.id)),
     integrationEvents: publicProcedure
       .input(z.object({ proposalId: z.number().int().positive() }))
       .query(({ input }) => listIntegrationEvents(input.proposalId)),

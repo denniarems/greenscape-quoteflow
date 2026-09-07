@@ -112,6 +112,20 @@ export async function updateProposalRow(
   return result[0];
 }
 
+export async function deleteProposalRow(id: number) {
+  const db = await requireDb();
+  // integration_events has no FK constraint; remove audit rows first so a
+  // deleted proposal leaves no orphans behind.
+  await db
+    .delete(integrationEvents)
+    .where(eq(integrationEvents.proposalId, id));
+  const result = await db
+    .delete(proposals)
+    .where(eq(proposals.id, id))
+    .returning();
+  return result[0] ?? null;
+}
+
 export async function createIntegrationEvent(values: {
   proposalId: number;
   destination: string;
