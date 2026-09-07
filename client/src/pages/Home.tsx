@@ -28,6 +28,17 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -459,9 +470,11 @@ function LineItemsEditor({
 function ProposalWorkspace({
   proposal,
   onRefresh,
+  onDeleted,
 }: {
   proposal: Proposal;
   onRefresh: (proposal?: Proposal) => void;
+  onDeleted: () => void;
 }) {
   const [draft, setDraft] = useState<EditableProposalFields>(() =>
     toEditable(proposal)
@@ -519,6 +532,20 @@ function ProposalWorkspace({
       utils.proposal.list.invalidate();
       toast.error("Approval needs attention", { description: error.message });
     },
+  });
+
+  const remove = trpc.proposal.delete.useMutation({
+    onSuccess: async () => {
+      await utils.proposal.list.invalidate();
+      onDeleted();
+      toast.success("Proposal deleted", {
+        description: `${proposal.customerName} was removed from the queue.`,
+      });
+    },
+    onError: error =>
+      toast.error("Could not delete proposal", {
+        description: error.message,
+      }),
   });
 
   const editedTotal = draft.lineItems.reduce(
@@ -627,6 +654,43 @@ function ProposalWorkspace({
                 <Printer className="h-3.5 w-3.5" />
                 <span>Export PDF</span>
               </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title="Delete this proposal permanently"
+                    className="h-8 gap-1.5 border-destructive/25 text-xs text-destructive hover:border-destructive/40 hover:text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      Delete proposal for {proposal.customerName}?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently removes proposal #{proposal.id}
+                      {disabled
+                        ? ", which was already approved and delivered,"
+                        : ""}{" "}
+                      along with its delivery audit log. This can't be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => remove.mutate({ id: proposal.id })}
+                      className="bg-destructive text-white hover:bg-destructive/90"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete proposal
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </div>
@@ -757,19 +821,20 @@ function ProposalWorkspace({
                   className="h-8 gap-1.5 text-xs"
                   onClick={handleCopyMessage}
                 >
-                  {copiedMessage ? (
-                    <>
-                      <Check className="h-3.5 w-3.5 text-emerald-600" /> Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3.5 w-3.5" /> Copy message
-                    </>
-                  )}
-                </Button>
+                    {copiedMessage ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-600" /> Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5" /> Copy message
+                      </>
+                    )}
+                  </Button>
               </div>
               <Textarea
                 disabled={disabled}
+                placeholder="Write or review a warm, professional customer-facing cover note introducing the proposal and next steps..."
                 value={draft.customerMessage}
                 onChange={e =>
                   setDraft(current => ({
@@ -1014,7 +1079,7 @@ function ProposalWorkspace({
           <p className="font-semibold text-xs uppercase tracking-wider text-emerald-900 mb-1">
             A Note from Greenscape Pro
           </p>
-          <p className="italic">"{draft.customerMessage}"</p>
+          <p className="italic whitespace-pre-wrap">"{draft.customerMessage}"</p>
         </div>
       )}
 
@@ -1134,6 +1199,7 @@ function ProposalWorkspace({
 export default function Home() {
   const [mode, setMode] = useState<"workspace" | "new">("workspace");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const utils = trpc.useUtils();
   const list = trpc.proposal.list.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
@@ -1153,6 +1219,14 @@ export default function Home() {
 
   const chooseProposal = (id: number) => {
     setSelectedId(id);
+    setMode("workspace");
+  };
+
+  const handleProposalDeleted = () => {
+    // The workspace already awaited list.invalidate(), so the cache is fresh:
+    // fall through to the next proposal in the queue, or the empty state.
+    const remaining = utils.proposal.list.getData()?.proposals ?? [];
+    setSelectedId(remaining[0]?.id ?? null);
     setMode("workspace");
   };
 
@@ -1271,6 +1345,7 @@ export default function Home() {
             <ProposalWorkspace
               proposal={selected}
               onRefresh={proposal => proposal && setSelectedId(proposal.id)}
+              onDeleted={handleProposalDeleted}
             />
           ) : (
             <div className="grid min-h-[calc(100vh-4rem)] place-items-center p-6">
