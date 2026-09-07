@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig } from "vite-plus";
 import path from "path";
 
 const templateRoot = path.resolve(import.meta.dirname);

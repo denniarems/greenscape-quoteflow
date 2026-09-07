@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import type { Proposal, ProposalLineItem } from "../shared/types";
-import { calculateTotal, evaluateGuardrails, webhookPayload } from "./proposal-service";
+import {
+  calculateTotal,
+  evaluateGuardrails,
+  webhookPayload,
+} from "./proposal-service";
 
 const lines: ProposalLineItem[] = [
   {
@@ -41,9 +45,16 @@ describe("proposal calculations", () => {
   });
 
   it("downgrades non-safety model flags so ordinary project dependencies remain reviewable", () => {
-    const flags = evaluateGuardrails(lines, [], [
-      { severity: "high", message: "HOA approval is required before construction." },
-    ]);
+    const flags = evaluateGuardrails(
+      lines,
+      [],
+      [
+        {
+          severity: "high",
+          message: "HOA approval is required before construction.",
+        },
+      ]
+    );
     expect(flags).toContainEqual({
       severity: "medium",
       message: "HOA approval is required before construction.",
@@ -69,7 +80,8 @@ describe("integration payload", () => {
       exclusions: [],
       unansweredQuestions: [],
       riskFlags: [],
-      customerMessage: "Thanks for inviting us to design your new outdoor living space.",
+      customerMessage:
+        "Thanks for inviting us to design your new outdoor living space.",
       totalCents: calculateTotal(lines),
       aiModel: "gpt-5-mini",
       promptTokens: 10,
