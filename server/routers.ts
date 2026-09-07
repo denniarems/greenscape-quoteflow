@@ -39,9 +39,13 @@ export const appRouter = router({
       const proposals = (await listProposalRows()).map(hydrateProposal);
       const metrics: DashboardMetrics = {
         totalProposals: proposals.length,
-        awaitingApproval: proposals.filter(item => item.status === "draft").length,
+        awaitingApproval: proposals.filter(item => item.status === "draft")
+          .length,
         approved: proposals.filter(item => item.status === "approved").length,
-        pipelineValueCents: proposals.reduce((sum, item) => sum + item.totalCents, 0),
+        pipelineValueCents: proposals.reduce(
+          (sum, item) => sum + item.totalCents,
+          0
+        ),
       };
       return { proposals, metrics };
     }),
@@ -49,19 +53,23 @@ export const appRouter = router({
       .input(proposalInputSchema)
       .mutation(({ input }) => generateAndPersistProposal(input)),
     update: publicProcedure
-      .input(z.object({
-        id: z.number().int().positive(),
-        projectSummary: z.string(),
-        lineItems: z.array(lineItemInput),
-        assumptions: z.array(z.string()),
-        exclusions: z.array(z.string()),
-        unansweredQuestions: z.array(z.string()),
-        riskFlags: z.array(z.object({
-          severity: z.enum(["low", "medium", "high"]),
-          message: z.string(),
-        })),
-        customerMessage: z.string(),
-      }))
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          projectSummary: z.string(),
+          lineItems: z.array(lineItemInput),
+          assumptions: z.array(z.string()),
+          exclusions: z.array(z.string()),
+          unansweredQuestions: z.array(z.string()),
+          riskFlags: z.array(
+            z.object({
+              severity: z.enum(["low", "medium", "high"]),
+              message: z.string(),
+            })
+          ),
+          customerMessage: z.string(),
+        })
+      )
       .mutation(({ input }) => {
         const { id, ...edits } = input;
         return persistEdits(id, edits);

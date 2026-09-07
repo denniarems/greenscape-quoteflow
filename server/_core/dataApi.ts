@@ -1,7 +1,7 @@
 /**
  * Quick example (matches curl usage):
  *   await callDataApi("Youtube/search", {
- *     query: { gl: "US", hl: "en", q: "manus" },
+ *     query: { gl: "US", hl: "en", q: "landscaping" },
  *   })
  */
 import { ENV } from "./env";
@@ -25,8 +25,13 @@ export async function callDataApi(
   }
 
   // Build the full URL by appending the service path to the base URL
-  const baseUrl = ENV.forgeApiUrl.endsWith("/") ? ENV.forgeApiUrl : `${ENV.forgeApiUrl}/`;
-  const fullUrl = new URL("webdevtoken.v1.WebDevService/CallApi", baseUrl).toString();
+  const baseUrl = ENV.forgeApiUrl.endsWith("/")
+    ? ENV.forgeApiUrl
+    : `${ENV.forgeApiUrl}/`;
+  const fullUrl = new URL(
+    "webdevtoken.v1.WebDevService/CallApi",
+    baseUrl
+  ).toString();
 
   const response = await fetch(fullUrl, {
     method: "POST",
