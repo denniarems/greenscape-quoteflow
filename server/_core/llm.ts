@@ -19,7 +19,12 @@ export type FileContent = {
   type: "file_url";
   file_url: {
     url: string;
-    mime_type?: "audio/mpeg" | "audio/wav" | "application/pdf" | "audio/mp4" | "video/mp4" ;
+    mime_type?:
+      | "audio/mpeg"
+      | "audio/wav"
+      | "application/pdf"
+      | "audio/mp4"
+      | "video/mp4";
   };
 };
 
@@ -212,14 +217,38 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
-const resolveApiUrl = () =>
-  ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
-    : "https://forge.manus.im/v1/chat/completions";
+export const resolveApiKey = (): string =>
+  process.env.OPENROUTER_API_KEY ||
+  ENV.openRouterApiKey ||
+  ENV.forgeApiKey ||
+  process.env.OPENAI_API_KEY ||
+  "";
 
-const assertApiKey = () => {
-  if (!ENV.forgeApiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+export const resolveApiUrl = (): string => {
+  if (ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0) {
+    return `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`;
+  }
+  const base =
+    process.env.OPENROUTER_BASE_URL ||
+    ENV.openRouterBaseUrl ||
+    "https://openrouter.ai/api/v1";
+  return `${base.replace(/\/$/, "")}/chat/completions`;
+};
+
+export const resolveModelsUrl = (): string => {
+  if (ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0) {
+    return `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models`;
+  }
+  const base =
+    process.env.OPENROUTER_BASE_URL ||
+    ENV.openRouterBaseUrl ||
+    "https://openrouter.ai/api/v1";
+  return `${base.replace(/\/$/, "")}/models`;
+};
+
+export const assertApiKey = (): void => {
+  if (!resolveApiKey()) {
+    throw new Error("OPENROUTER_API_KEY is not configured");
   }
 };
 
@@ -312,9 +341,7 @@ const fetchWithBackoff = async (
         return response;
       }
 
-      const retryAfterMs = parseRetryAfter(
-        response.headers.get("retry-after")
-      );
+      const retryAfterMs = parseRetryAfter(response.headers.get("retry-after"));
       try {
         await response.body?.cancel();
       } catch {
@@ -358,13 +385,20 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     max_tokens,
   } = params;
 
+  const apiKey = resolveApiKey();
+  const isForge = Boolean(
+    ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
+  );
+
   const payload: Record<string, unknown> = {
     messages: messages.map(normalizeMessage),
   };
 
-  if (model) {
-    payload.model = model;
-  }
+  payload.model =
+    model ||
+    process.env.OPENROUTER_MODEL ||
+    ENV.openRouterModel ||
+    (isForge ? "gpt-5-mini" : "openai/gpt-4o-mini");
 
   if (tools && tools.length > 0) {
     payload.tools = tools;
@@ -386,7 +420,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   if (thinking) {
     payload.thinking = thinking;
   }
-  if (reasoning) {
+  if (reasoning && isForge) {
     payload.reasoning = reasoning;
   }
 
@@ -401,12 +435,20 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    authorization: `Bearer ${apiKey}`,
+  };
+
+  if (!isForge) {
+    headers["HTTP-Referer"] =
+      process.env.APP_URL || ENV.appUrl || "http://localhost:3000";
+    headers["X-Title"] = "Greenscape QuoteFlow";
+  }
+
   const response = await fetchWithBackoff(resolveApiUrl(), {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.forgeApiKey}`,
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 
@@ -435,12 +477,24 @@ export type ModelsResponse = {
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
 
-  const url = ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
-    ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models`
-    : "https://forge.manus.im/v1/models";
+  const apiKey = resolveApiKey();
+  const isForge = Boolean(
+    ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
+  );
+  const url = resolveModelsUrl();
+
+  const headers: Record<string, string> = {
+    authorization: `Bearer ${apiKey}`,
+  };
+
+  if (!isForge) {
+    headers["HTTP-Referer"] =
+      process.env.APP_URL || ENV.appUrl || "http://localhost:3000";
+    headers["X-Title"] = "Greenscape QuoteFlow";
+  }
 
   const response = await fetchWithBackoff(url, {
-    headers: { authorization: `Bearer ${ENV.forgeApiKey}` },
+    headers,
   });
 
   if (!response.ok) {
