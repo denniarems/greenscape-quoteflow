@@ -29,7 +29,7 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the detailed flow and production ha
 
 ## Local Setup
 
-You can run the interactive setup wizard to automatically walk through configuring OpenRouter, Database, JWT secrets, OAuth, and webhooks:
+You can run the interactive setup wizard to automatically walk through configuring OpenRouter, Database, JWT secrets, and webhooks:
 
 ```bash
 pnpm wizard
@@ -55,13 +55,13 @@ pnpm test
 pnpm build
 ```
 
-The tests cover deterministic arithmetic, approval guardrails, and the outbound payload boundary. The public assessment deployment intentionally does not require login so evaluators can test it immediately. A production deployment would enable the scaffolded authentication and role-based procedures.
+The tests cover deterministic arithmetic, approval guardrails, and the outbound payload boundary.
 
 ## Vercel Deployment
 
 QuoteFlow includes both an interactive onboarding wizard and a dedicated deployment runner for Vercel:
 
-1. **Interactive Setup Wizard**: Walks through provisioning Neon PostgreSQL, OpenRouter AI keys, GitHub OAuth for the live production domain, and Vercel environment variables:
+1. **Interactive Setup Wizard**: Walks through provisioning Neon PostgreSQL, OpenRouter AI keys, production domain, and Vercel environment variables:
    ```bash
    pnpm run wizard:vercel
    # or: bash scripts/setup-vercel-wizard.sh

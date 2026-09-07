@@ -188,7 +188,7 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 ENV_FILE="${ENV_FILE:-.env.production}"
-TOTAL_STAGES=8
+TOTAL_STAGES=7
 
 banner "QuoteFlow Vercel Production Deployment Setup"
 
@@ -289,7 +289,7 @@ step "Choose your project name (e.g. 'greenscape-quoteflow')."
 step "Note the assigned production domain (e.g. 'https://greenscape-quoteflow.vercel.app')."
 ask APP_URL "Enter production domain / APP_URL (e.g. https://greenscape-quoteflow.vercel.app):"
 while [[ -z "$APP_URL" ]]; do
-  warn "APP_URL is required to properly configure OAuth redirects."
+  warn "APP_URL is required to properly configure your deployment domain."
   ask APP_URL "Enter production domain / APP_URL:"
 done
 # Ensure leading https:// if missing
@@ -298,37 +298,7 @@ done
 APP_URL="${APP_URL%/}"
 write_env APP_URL "$APP_URL"
 
-# ── Stage 6: GitHub OAuth Configuration ───────────────────────────────────
-stage "GitHub OAuth application for production domain"
-say "Configure GitHub OAuth to authenticate team members against the live domain."
-open_url "https://github.com/settings/applications/new"
-step "Register a new OAuth Application (or edit an existing one) with:"
-note "  • Application name: QuoteFlow (Production)"
-note "  • Homepage URL: $APP_URL"
-note "  • Authorization callback URL: $APP_URL/api/oauth/callback"
-step "Click 'Register application' and copy the Client ID."
-ask GITHUB_CLIENT_ID "GitHub Client ID [Enter to skip authentication]:"
-
-if [[ -n "$GITHUB_CLIENT_ID" ]]; then
-  write_env GITHUB_CLIENT_ID "$GITHUB_CLIENT_ID"
-  write_env VITE_GITHUB_CLIENT_ID "$GITHUB_CLIENT_ID"
-
-  step "Click 'Generate a new client secret' and copy it."
-  ask_secret GITHUB_CLIENT_SECRET "GitHub Client Secret:"
-  while [[ -z "$GITHUB_CLIENT_SECRET" ]]; do
-    warn "Client Secret is required when Client ID is configured."
-    ask_secret GITHUB_CLIENT_SECRET "GitHub Client Secret:"
-  done
-  write_env GITHUB_CLIENT_SECRET "$GITHUB_CLIENT_SECRET"
-
-  ask OWNER_OPEN_ID "Owner GitHub Username for admin access [default: admin]:"
-  [[ -z "$OWNER_OPEN_ID" ]] && OWNER_OPEN_ID="admin"
-  write_env OWNER_OPEN_ID "$OWNER_OPEN_ID"
-else
-  note "Skipped OAuth configuration. Assessment evaluation mode remains open."
-fi
-
-# ── Stage 7: Outbound CRM Webhook (Optional) ──────────────────────────────
+# ── Stage 6: Outbound CRM Webhook (Optional) ──────────────────────────────
 stage "Outbound CRM webhook (optional)"
 say "When a proposal is approved, QuoteFlow dispatches an outbound event payload."
 say "In production this connects to GoHighLevel (GHL). For webhook inspection, use Webhook.site."
@@ -341,7 +311,7 @@ else
   note "Skipped. Defaulting to built-in live demo notification channel."
 fi
 
-# ── Stage 8: Vercel Environment Variables & Deploy Handoff ────────────────
+# ── Stage 7: Vercel Environment Variables & Deploy Handoff ────────────────
 stage "Provision Vercel environment variables & deploy handoff"
 say "The captured configuration has been stored locally in $ENV_FILE."
 say "We must ensure these environment variables are populated in your Vercel Project."
@@ -353,8 +323,6 @@ note "  • OPENROUTER_API_KEY"
 note "  • OPENROUTER_MODEL"
 note "  • JWT_SECRET"
 note "  • APP_URL"
-[[ -n "${GITHUB_CLIENT_ID:-}" ]] && note "  • GITHUB_CLIENT_ID and VITE_GITHUB_CLIENT_ID"
-[[ -n "${GITHUB_CLIENT_SECRET:-}" ]] && note "  • GITHUB_CLIENT_SECRET"
 [[ -n "${OUTBOUND_WEBHOOK_URL:-}" ]] && note "  • OUTBOUND_WEBHOOK_URL"
 
 printf '\n'

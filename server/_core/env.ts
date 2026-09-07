@@ -2,7 +2,6 @@ export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
   databaseUrl: process.env.DATABASE_URL ?? "",
-  oAuthServerUrl: process.env.OAUTH_SERVER_URL ?? "",
   ownerOpenId: process.env.OWNER_OPEN_ID ?? "",
   isProduction: process.env.NODE_ENV === "production",
   forgeApiUrl: process.env.BUILT_IN_FORGE_API_URL ?? "",
@@ -14,7 +13,4 @@ export const ENV = {
   openRouterBaseUrl:
     process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
-  githubClientId:
-    process.env.GITHUB_CLIENT_ID ?? process.env.VITE_GITHUB_CLIENT_ID ?? "",
-  githubClientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
 };

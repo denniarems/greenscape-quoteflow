@@ -188,7 +188,7 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=6
+TOTAL_STAGES=5
 
 banner "QuoteFlow Environment & Infrastructure Setup"
 
@@ -243,40 +243,7 @@ else
 fi
 write_env JWT_SECRET "$JWT_SECRET"
 
-# ── Stage 4: GitHub OAuth Setup ───────────────────────────────────────────
-stage "GitHub OAuth application setup"
-say "QuoteFlow uses GitHub OAuth to authenticate team members."
-say "We will create a GitHub OAuth application and capture its credentials."
-open_url "https://github.com/settings/applications/new"
-step "On the 'Register a new OAuth application' form, enter:"
-note "  • Application name: QuoteFlow"
-note "  • Homepage URL: http://localhost:3000"
-note "  • Authorization callback URL: http://localhost:3000/api/oauth/callback"
-step "Click 'Register application'."
-step "Copy the displayed 'Client ID'."
-ask GITHUB_CLIENT_ID "Paste GitHub Client ID [Enter to skip]:"
-
-if [[ -n "$GITHUB_CLIENT_ID" ]]; then
-  write_env GITHUB_CLIENT_ID "$GITHUB_CLIENT_ID"
-  write_env VITE_GITHUB_CLIENT_ID "$GITHUB_CLIENT_ID"
-
-  step "Under 'Client secrets', click 'Generate a new client secret' and copy it."
-  ask_secret GITHUB_CLIENT_SECRET "Paste GitHub Client Secret:"
-  while [[ -z "$GITHUB_CLIENT_SECRET" ]]; do
-    warn "Client Secret is required when Client ID is provided."
-    ask_secret GITHUB_CLIENT_SECRET "Paste GitHub Client Secret:"
-  done
-  write_env GITHUB_CLIENT_SECRET "$GITHUB_CLIENT_SECRET"
-
-  step "Optionally specify your GitHub username or ID for admin privileges (default: admin):"
-  ask OWNER_OPEN_ID "OWNER_OPEN_ID [Enter keeps/sets default]:"
-  [[ -z "$OWNER_OPEN_ID" ]] && OWNER_OPEN_ID="admin"
-  write_env OWNER_OPEN_ID "$OWNER_OPEN_ID"
-else
-  note "Skipping GitHub OAuth. Local development can run unauthenticated or using mock bypass."
-fi
-
-# ── Stage 5: Outbound Integration Webhook ─────────────────────────────────
+# ── Stage 4: Outbound Integration Webhook ─────────────────────────────────
 stage "Outbound CRM webhook (optional)"
 say "When a proposal is approved, QuoteFlow emits an outbound webhook."
 say "In production this targets GoHighLevel (GHL). For testing, you can use Webhook.site."
@@ -289,7 +256,7 @@ else
   note "Skipped. QuoteFlow will use the built-in demo ntfy topic."
 fi
 
-# ── Stage 6: Database Push & Migration ────────────────────────────────────
+# ── Stage 5: Database Push & Migration ────────────────────────────────────
 stage "Database push & initialization"
 say "We can now push the database schema to your database to create all tables."
 step "This executes 'pnpm db:push' (or 'bun run db:push') using the DATABASE_URL."
