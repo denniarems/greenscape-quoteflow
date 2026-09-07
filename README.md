@@ -57,6 +57,22 @@ pnpm build
 
 The tests cover deterministic arithmetic, approval guardrails, and the outbound payload boundary. The public assessment deployment intentionally does not require login so evaluators can test it immediately. A production deployment would enable the scaffolded authentication and role-based procedures.
 
+## Vercel Deployment
+
+QuoteFlow includes both an interactive onboarding wizard and a dedicated deployment runner for Vercel:
+
+1. **Interactive Setup Wizard**: Walks through provisioning Neon PostgreSQL, OpenRouter AI keys, GitHub OAuth for the live production domain, and Vercel environment variables:
+   ```bash
+   pnpm run wizard:vercel
+   # or: bash scripts/setup-vercel-wizard.sh
+   ```
+
+2. **Standalone Deployment Runner**: Runs pre-flight type checks and tests, builds production bundles, and deploys via Vercel CLI (`npx vercel --prod`) or git push:
+   ```bash
+   pnpm run deploy
+   # or: bash scripts/deploy.sh
+   ```
+
 ## AI Cost
 
 The app uses `openai/gpt-4o-mini` via OpenRouter (or `gpt-5-mini` on the managed platform gateway), priced at ~$0.15 per million input tokens and ~$0.60 per million output tokens. A representative 4,000-input/1,500-output generation costs approximately **$0.0015** before platform overhead. The workflow uses one model call per generated proposal; edits and approvals do not call the model.

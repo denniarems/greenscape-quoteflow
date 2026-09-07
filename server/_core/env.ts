@@ -14,4 +14,7 @@ export const ENV = {
   openRouterBaseUrl:
     process.env.OPENROUTER_BASE_URL ?? "https://openrouter.ai/api/v1",
   appUrl: process.env.APP_URL ?? "http://localhost:3000",
+  githubClientId:
+    process.env.GITHUB_CLIENT_ID ?? process.env.VITE_GITHUB_CLIENT_ID ?? "",
+  githubClientSecret: process.env.GITHUB_CLIENT_SECRET ?? "",
 };

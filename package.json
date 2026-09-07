@@ -12,7 +12,9 @@
     "lint": "vp lint",
     "test": "vp test run",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
-    "wizard": "bash scripts/setup-wizard.sh"
+    "wizard": "bash scripts/setup-wizard.sh",
+    "wizard:vercel": "bash scripts/setup-vercel-wizard.sh",
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.693.0",

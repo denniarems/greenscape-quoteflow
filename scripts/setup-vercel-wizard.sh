@@ -177,9 +177,8 @@ finish() {
     for s in "${SKIPPED[@]}"; do note "  - $s"; done
   fi
   printf '\n'
-  note "Next steps:"
-  note "  1. Run 'pnpm dev' (or 'bun dev') to start the application."
-  note "  2. Run 'pnpm check' and 'pnpm test' to verify health."
+  note "Deployment runner:"
+  note "  You can run 'bash scripts/deploy.sh' anytime to build & deploy to Vercel."
   printf '\n'
 }
 
@@ -188,46 +187,80 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=6
+ENV_FILE="${ENV_FILE:-.env.production}"
+TOTAL_STAGES=8
 
-banner "QuoteFlow Environment & Infrastructure Setup"
+banner "QuoteFlow Vercel Production Deployment Setup"
 
-# ── Stage 1: OpenRouter AI Credentials ────────────────────────────────────
+# ── Stage 1: Codebase & Vercel Configuration Verification ─────────────────
+stage "Codebase & Vercel configuration verification"
+say "Verifying that vercel.json and api/index.ts are configured for serverless execution."
+if [[ ! -f "vercel.json" ]]; then
+  warn "vercel.json missing! Creating default routing config..."
+  printf '{\n  "version": 2,\n  "buildCommand": "bun run build",\n  "outputDirectory": "dist/public",\n  "rewrites": [\n    { "source": "/api/(.*)", "destination": "/api" },\n    { "source": "/(.*)", "destination": "/index.html" }\n  ]\n}\n' > vercel.json
+fi
+
+if [[ ! -f "api/index.ts" ]]; then
+  warn "api/index.ts missing! Creating serverless function adapter..."
+  mkdir -p api
+  printf 'import { createExpressApp } from "../server/_core/app";\n\nconst app = createExpressApp();\nexport default app;\n' > api/index.ts
+fi
+
+step "Checking TypeScript and project build before remote deployment..."
+if command -v bun >/dev/null 2>&1; then
+  bun run check
+elif command -v pnpm >/dev/null 2>&1; then
+  pnpm check
+fi
+say "Code checks passed."
+pause "Press Enter to proceed to production database setup."
+
+# ── Stage 2: NeonDB Production Database Connection ────────────────────────
+stage "NeonDB PostgreSQL production database"
+say "QuoteFlow requires a serverless PostgreSQL database to persist proposals and audit logs."
+open_url "https://console.neon.tech"
+step "Sign in or select your Neon project."
+step "Select your production database branch (or the main branch) and copy the pooled connection string."
+note "Format: postgresql://[user]:[password]@[endpoint].neon.tech/[dbname]?sslmode=require"
+ask_secret DATABASE_URL "Paste your production Neon DATABASE_URL:"
+while [[ -z "$DATABASE_URL" ]]; do
+  warn "DATABASE_URL is required for production operations."
+  ask_secret DATABASE_URL "Paste your production Neon DATABASE_URL:"
+done
+write_env DATABASE_URL "$DATABASE_URL"
+
+step "Push database schema migrations to this database?"
+if confirm "Run schema push now?"; then
+  if command -v bun >/dev/null 2>&1; then
+    DATABASE_URL="$DATABASE_URL" bun run db:push || warn "Database push encountered an error."
+  elif command -v pnpm >/dev/null 2>&1; then
+    DATABASE_URL="$DATABASE_URL" pnpm db:push || warn "Database push encountered an error."
+  fi
+  pause "Review database output and press Enter to continue."
+else
+  note "Skipping schema push. Remember to run 'bun run db:push' before using proposals."
+fi
+
+# ── Stage 3: OpenRouter AI Credentials ────────────────────────────────────
 stage "OpenRouter AI setup"
-say "We will configure your OpenRouter credentials for structured proposal generation."
+say "QuoteFlow uses OpenRouter to generate structured landscaping proposals from notes."
 open_url "https://openrouter.ai/keys"
-step "Sign in to OpenRouter or create a free account."
-step "Click 'Create Key', enter a key name (e.g., 'quoteflow-dev'), and click Create."
-step "Copy the generated API key (starts with sk-or-v1-)."
-ask_secret OPENROUTER_API_KEY "Paste your OpenRouter API key:"
+step "On OpenRouter API Keys page, create or copy your production API key."
+ask_secret OPENROUTER_API_KEY "Paste your OpenRouter API key (sk-or-v1-...):"
 while [[ -z "$OPENROUTER_API_KEY" ]]; do
-  warn "OpenRouter API key cannot be empty to run proposal generation."
+  warn "OPENROUTER_API_KEY cannot be empty."
   ask_secret OPENROUTER_API_KEY "Paste your OpenRouter API key:"
 done
 write_env OPENROUTER_API_KEY "$OPENROUTER_API_KEY"
 
-step "Select default AI model (press Enter to accept 'openai/gpt-4o-mini')."
+step "Specify production AI model (press Enter for default 'openai/gpt-4o-mini')."
 ask OPENROUTER_MODEL "Model [default: openai/gpt-4o-mini]:"
 [[ -z "$OPENROUTER_MODEL" ]] && OPENROUTER_MODEL="openai/gpt-4o-mini"
 write_env OPENROUTER_MODEL "$OPENROUTER_MODEL"
 
-# ── Stage 2: Database Connection String (NeonDB) ──────────────────────────
-stage "NeonDB PostgreSQL database connection"
-say "Configure your Neon Serverless PostgreSQL connection for proposals, versions, and audit logs."
-open_url "https://console.neon.tech"
-step "Sign in or create a project on Neon (https://neon.tech)."
-step "On your Neon project dashboard, copy the pooled PostgreSQL connection string."
-note "Format: postgresql://[user]:[password]@[endpoint].neon.tech/[dbname]?sslmode=require"
-ask_secret DATABASE_URL "Paste your Neon DATABASE_URL:"
-while [[ -z "$DATABASE_URL" ]]; do
-  warn "DATABASE_URL is required to persist proposals and run drizzle commands."
-  ask_secret DATABASE_URL "Paste your DATABASE_URL:"
-done
-write_env DATABASE_URL "$DATABASE_URL"
-
-# ── Stage 3: Security & Session Secrets ───────────────────────────────────
+# ── Stage 4: Session Security & JWT Secret ─────────────────────────────────
 stage "Session security & JWT secret"
-say "QuoteFlow signs authentication sessions and cookies using JWT_SECRET."
+say "Configure the cryptographic secret used to sign session cookies."
 existing_jwt=$(_existing "JWT_SECRET" || true)
 if [[ -z "$existing_jwt" ]]; then
   if command -v openssl >/dev/null 2>&1; then
@@ -235,78 +268,102 @@ if [[ -z "$existing_jwt" ]]; then
   else
     generated_jwt=$(LC_ALL=C tr -dc 'a-zA-Z0-9' < /dev/urandom 2>/dev/null | head -c 64 || echo "random-secret-$(date +%s)")
   fi
-  say "Generated a random 32-byte secure key."
-  ask_secret JWT_SECRET "JWT_SECRET [Enter to use generated secret]:"
+  say "Generated random 32-byte production secret."
+  ask_secret JWT_SECRET "JWT_SECRET [Enter accepts generated secret]:"
   [[ -z "$JWT_SECRET" ]] && JWT_SECRET="$generated_jwt"
 else
   ask_secret JWT_SECRET "JWT_SECRET [Enter keeps current]:"
 fi
 write_env JWT_SECRET "$JWT_SECRET"
 
-# ── Stage 4: GitHub OAuth Setup ───────────────────────────────────────────
-stage "GitHub OAuth application setup"
-say "QuoteFlow uses GitHub OAuth to authenticate team members."
-say "We will create a GitHub OAuth application and capture its credentials."
+# ── Stage 5: Vercel Project Import & Domain Setup ─────────────────────────
+stage "Vercel project setup & production domain"
+say "We will link QuoteFlow to your Vercel account and establish its production domain."
+open_url "https://vercel.com/new"
+step "In Vercel, click 'Import' next to the 'denniarems/greenscape-quoteflow' repository."
+step "Choose your project name (e.g. 'greenscape-quoteflow')."
+step "Note the assigned production domain (e.g. 'https://greenscape-quoteflow.vercel.app')."
+ask APP_URL "Enter production domain / APP_URL (e.g. https://greenscape-quoteflow.vercel.app):"
+while [[ -z "$APP_URL" ]]; do
+  warn "APP_URL is required to properly configure OAuth redirects."
+  ask APP_URL "Enter production domain / APP_URL:"
+done
+# Ensure leading https:// if missing
+[[ "$APP_URL" =~ ^https?:// ]] || APP_URL="https://$APP_URL"
+# Remove trailing slash
+APP_URL="${APP_URL%/}"
+write_env APP_URL "$APP_URL"
+
+# ── Stage 6: GitHub OAuth Configuration ───────────────────────────────────
+stage "GitHub OAuth application for production domain"
+say "Configure GitHub OAuth to authenticate team members against the live domain."
 open_url "https://github.com/settings/applications/new"
-step "On the 'Register a new OAuth application' form, enter:"
-note "  • Application name: QuoteFlow"
-note "  • Homepage URL: http://localhost:3000"
-note "  • Authorization callback URL: http://localhost:3000/api/oauth/callback"
-step "Click 'Register application'."
-step "Copy the displayed 'Client ID'."
-ask GITHUB_CLIENT_ID "Paste GitHub Client ID [Enter to skip]:"
+step "Register a new OAuth Application (or edit an existing one) with:"
+note "  • Application name: QuoteFlow (Production)"
+note "  • Homepage URL: $APP_URL"
+note "  • Authorization callback URL: $APP_URL/api/oauth/callback"
+step "Click 'Register application' and copy the Client ID."
+ask GITHUB_CLIENT_ID "GitHub Client ID [Enter to skip authentication]:"
 
 if [[ -n "$GITHUB_CLIENT_ID" ]]; then
   write_env GITHUB_CLIENT_ID "$GITHUB_CLIENT_ID"
   write_env VITE_GITHUB_CLIENT_ID "$GITHUB_CLIENT_ID"
 
-  step "Under 'Client secrets', click 'Generate a new client secret' and copy it."
-  ask_secret GITHUB_CLIENT_SECRET "Paste GitHub Client Secret:"
+  step "Click 'Generate a new client secret' and copy it."
+  ask_secret GITHUB_CLIENT_SECRET "GitHub Client Secret:"
   while [[ -z "$GITHUB_CLIENT_SECRET" ]]; do
-    warn "Client Secret is required when Client ID is provided."
-    ask_secret GITHUB_CLIENT_SECRET "Paste GitHub Client Secret:"
+    warn "Client Secret is required when Client ID is configured."
+    ask_secret GITHUB_CLIENT_SECRET "GitHub Client Secret:"
   done
   write_env GITHUB_CLIENT_SECRET "$GITHUB_CLIENT_SECRET"
 
-  step "Optionally specify your GitHub username or ID for admin privileges (default: admin):"
-  ask OWNER_OPEN_ID "OWNER_OPEN_ID [Enter keeps/sets default]:"
+  ask OWNER_OPEN_ID "Owner GitHub Username for admin access [default: admin]:"
   [[ -z "$OWNER_OPEN_ID" ]] && OWNER_OPEN_ID="admin"
   write_env OWNER_OPEN_ID "$OWNER_OPEN_ID"
 else
-  note "Skipping GitHub OAuth. Local development can run unauthenticated or using mock bypass."
+  note "Skipped OAuth configuration. Assessment evaluation mode remains open."
 fi
 
-# ── Stage 5: Outbound Integration Webhook ─────────────────────────────────
+# ── Stage 7: Outbound CRM Webhook (Optional) ──────────────────────────────
 stage "Outbound CRM webhook (optional)"
-say "When a proposal is approved, QuoteFlow emits an outbound webhook."
-say "In production this targets GoHighLevel (GHL). For testing, you can use Webhook.site."
+say "When a proposal is approved, QuoteFlow dispatches an outbound event payload."
+say "In production this connects to GoHighLevel (GHL). For webhook inspection, use Webhook.site."
 open_url "https://webhook.site"
-step "Copy your unique Webhook.site URL, or your GoHighLevel inbound webhook URL."
-ask OUTBOUND_WEBHOOK_URL "OUTBOUND_WEBHOOK_URL [Enter to skip and use demo topic]:"
+step "Copy your GoHighLevel inbound webhook URL or Webhook.site target."
+ask OUTBOUND_WEBHOOK_URL "OUTBOUND_WEBHOOK_URL [Enter to skip and use demo ntfy topic]:"
 if [[ -n "$OUTBOUND_WEBHOOK_URL" ]]; then
   write_env OUTBOUND_WEBHOOK_URL "$OUTBOUND_WEBHOOK_URL"
 else
-  note "Skipped. QuoteFlow will use the built-in demo ntfy topic."
+  note "Skipped. Defaulting to built-in live demo notification channel."
 fi
 
-# ── Stage 6: Database Push & Migration ────────────────────────────────────
-stage "Database push & initialization"
-say "We can now push the database schema to your database to create all tables."
-step "This executes 'pnpm db:push' (or 'bun run db:push') using the DATABASE_URL."
-if confirm "Run database push now?"; then
-  printf '\n'
-  if command -v pnpm >/dev/null 2>&1; then
-    pnpm db:push || warn "pnpm db:push reported an issue. Check connection string & network."
-  elif command -v bun >/dev/null 2>&1; then
-    bun run db:push || warn "bun run db:push reported an issue. Check connection string & network."
-  elif command -v npm >/dev/null 2>&1; then
-    npm run db:push || warn "npm run db:push reported an issue. Check connection string & network."
-  else
-    warn "Neither pnpm, bun, nor npm found in PATH. Run db:push manually."
+# ── Stage 8: Vercel Environment Variables & Deploy Handoff ────────────────
+stage "Provision Vercel environment variables & deploy handoff"
+say "The captured configuration has been stored locally in $ENV_FILE."
+say "We must ensure these environment variables are populated in your Vercel Project."
+open_url "https://vercel.com/dashboard"
+step "In Vercel dashboard: Project → Settings → Environment Variables."
+step "Add each of the following variables:"
+note "  • DATABASE_URL"
+note "  • OPENROUTER_API_KEY"
+note "  • OPENROUTER_MODEL"
+note "  • JWT_SECRET"
+note "  • APP_URL"
+[[ -n "${GITHUB_CLIENT_ID:-}" ]] && note "  • GITHUB_CLIENT_ID and VITE_GITHUB_CLIENT_ID"
+[[ -n "${GITHUB_CLIENT_SECRET:-}" ]] && note "  • GITHUB_CLIENT_SECRET"
+[[ -n "${OUTBOUND_WEBHOOK_URL:-}" ]] && note "  • OUTBOUND_WEBHOOK_URL"
+
+printf '\n'
+if command -v vercel >/dev/null 2>&1 || npx --yes vercel --version >/dev/null 2>&1; then
+  if confirm "Would you like to run the separate deploy script (bash scripts/deploy.sh) now?"; then
+    printf '\n'
+    bash scripts/deploy.sh || warn "Deploy script reported an error. You can run it manually anytime: bash scripts/deploy.sh"
+    pause "Press Enter after reviewing deployment output."
   fi
-  pause "Press Enter to continue after reviewing output."
 else
-  note "Skipped database push. You can run 'pnpm db:push' manually later."
+  note "Vercel CLI not detected. You can push commits to GitHub to trigger Vercel deployment,"
+  note "or run the separate deploy script anytime: bash scripts/deploy.sh"
+  pause "Press Enter to finalize setup."
 fi
 
 finish
