@@ -29,4 +29,11 @@ describe("proposal router", () => {
     expect(typeof result.metrics.approved).toBe("number");
     expect(typeof result.metrics.pipelineValueCents).toBe("number");
   });
+
+  it("returns null when deleting an unknown proposal id", async () => {
+    const caller = appRouter.createCaller(createMockContext());
+    const result = await caller.proposal.delete({ id: 999_999_999 });
+
+    expect(result).toBeNull();
+  });
 });
