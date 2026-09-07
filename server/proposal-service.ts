@@ -123,7 +123,7 @@ const generatedSchema = {
     customerMessage: {
       type: "string",
       description:
-        "A warm, professional 2-4 sentence customer-facing cover note introducing the proposal and next steps.",
+        "A warm, personalized, professional 2-4 sentence customer-facing cover note addressing the customer by name, introducing the proposal, summarizing key scope, and outlining next steps. Must not be a placeholder or stub.",
     },
   },
   required: [
@@ -262,7 +262,7 @@ export function hydrateProposal(row: ProposalRow): Proposal {
 async function requestStructuredProposal(
   input: z.infer<typeof proposalInputSchema>
 ) {
-  const system = `You are the proposal operations copilot for Greenscape Pro, a premium Phoenix landscape and hardscape design-build firm. Convert site-walk notes into a precise proposal draft. Never claim a permit, HOA approval, engineering result, or measurement that is not in the notes. Use realistic Phoenix premium-contractor allowances when exact catalog pricing is unavailable and disclose each allowance in assumptions. Use high severity only for a genuine safety, legal, or internally contradictory issue; ordinary missing details belong in unansweredQuestions. Write a warm, professional 2-4 sentence customer-facing cover note in customerMessage. Return only schema-valid JSON with these exact keys: "projectSummary" (string), "lineItems" (array of objects with category, description, quantity, unit, unitPriceCents, sourceNote), "assumptions" (array of strings), "exclusions" (array of strings), "unansweredQuestions" (array of strings), "riskFlags" (array of objects with severity and message), "customerMessage" (string).`;
+  const system = `You are the proposal operations copilot for Greenscape Pro, a premium Phoenix landscape and hardscape design-build firm. Convert site-walk notes into a precise proposal draft. Never claim a permit, HOA approval, engineering result, or measurement that is not in the notes. Use realistic Phoenix premium-contractor allowances when exact catalog pricing is unavailable and disclose each allowance in assumptions. Use high severity only for a genuine safety, legal, or internally contradictory issue; ordinary missing details belong in unansweredQuestions. In customerMessage, write a warm, personalized, professional 2-4 sentence customer-facing cover note addressing the client by name, summarizing key project scope, and outlining next steps for reviewing and scheduling. Never return a placeholder or stub in customerMessage. Return only schema-valid JSON with these exact keys: "projectSummary" (string), "lineItems" (array of objects with category, description, quantity, unit, unitPriceCents, sourceNote), "assumptions" (array of strings), "exclusions" (array of strings), "unansweredQuestions" (array of strings), "riskFlags" (array of objects with severity and message), "customerMessage" (string).`;
   const pricingReference = `Representative assessment catalog (replace with the client's 200+ line catalog in production): demolition $4-$9/sq ft; premium pavers installed $22-$32/sq ft; concrete footing allowance $850/each; cedar/alumawood pergola $90-$150/sq ft; artificial turf $14-$20/sq ft; drip irrigation zone $1,400-$2,400; outdoor kitchen base $900-$1,500/linear ft excluding appliances; low-voltage lighting $350-$600/fixture; mobilization/design $1,500-$3,500. Price in integer cents.`;
   const user = `${pricingReference}\n\nCustomer: ${input.customerName}\nAddress: ${input.projectAddress}\nProject type: ${input.projectType}\nDesired start: ${input.desiredStartDate || "Not stated"}\nBudget: ${input.budgetRange || "Not stated"}\n\nSite-walk notes:\n${input.siteNotes}`;
   const model = getProposalModel();
@@ -300,7 +300,9 @@ async function requestStructuredProposal(
       },
       body: JSON.stringify({
         ...request,
-        reasoning: { effort: "minimal" },
+        ...(model.includes("r1") || model.includes("o1") || model.includes("o3")
+          ? { reasoning: { effort: "minimal" } }
+          : {}),
       }),
       signal: AbortSignal.timeout(120_000),
     });
@@ -479,12 +481,20 @@ export function normalizeModelPayload(rawJson: any): any {
 
   const projectSummary =
     obj.projectSummary ?? obj.project_summary ?? obj.summary ?? "";
-  const customerMessage =
+  let customerMessage =
     obj.customerMessage ??
     obj.customer_message ??
     obj.coverNote ??
     obj.cover_note ??
     "";
+  if (
+    typeof customerMessage === "string" &&
+    customerMessage.trim().length < 80 &&
+    (/^customized cover note[:\s]/i.test(customerMessage) ||
+      /^cover note[:\s]/i.test(customerMessage))
+  ) {
+    customerMessage = "";
+  }
 
   return {
     projectSummary,
@@ -521,6 +531,36 @@ export function parseGeneratedProposal(rawContent: string | unknown) {
   return parsed.data;
 }
 
+export function buildSubstantiveCustomerMessage(
+  existingMessage: string | null | undefined,
+  input: {
+    customerName: string;
+    projectType?: string | null;
+    projectAddress?: string | null;
+    projectSummary?: string | null;
+  }
+): string {
+  const trimmed = (existingMessage ?? "").trim();
+  const isStub =
+    !trimmed ||
+    trimmed.length < 60 ||
+    /^customized cover note[:\s]/i.test(trimmed) ||
+    /^cover note[:\s]/i.test(trimmed);
+
+  if (!isStub) {
+    return trimmed;
+  }
+
+  const firstName = input.customerName.trim().split(/\s+/)[0] || "there";
+  const projectScope =
+    input.projectType?.trim() || "landscape and hardscape project";
+  const addressPart = input.projectAddress?.trim()
+    ? ` at ${input.projectAddress.trim()}`
+    : "";
+
+  return `Dear ${firstName},\n\nThank you for the opportunity to partner with you on your ${projectScope}${addressPart}. We have prepared this detailed proposal and transparent line-item investment breakdown based on our on-site walk and specifications.\n\nPlease review the itemized scope, allowances, and project assumptions below. We are excited to bring your outdoor living vision to life—please reach out if you have any questions or would like to make any adjustments!`;
+}
+
 export async function generateAndPersistProposal(
   rawInput: z.input<typeof proposalInputSchema>
 ) {
@@ -531,6 +571,15 @@ export async function generateAndPersistProposal(
     draft.lineItems,
     draft.unansweredQuestions,
     draft.riskFlags
+  );
+  const customerMessage = buildSubstantiveCustomerMessage(
+    draft.customerMessage,
+    {
+      customerName: input.customerName,
+      projectType: input.projectType,
+      projectAddress: input.projectAddress,
+      projectSummary: draft.projectSummary,
+    }
   );
   const row = await createProposalRow({
     ...input,
@@ -544,7 +593,7 @@ export async function generateAndPersistProposal(
     exclusionsJson: JSON.stringify(draft.exclusions),
     unansweredQuestionsJson: JSON.stringify(draft.unansweredQuestions),
     riskFlagsJson: JSON.stringify(riskFlags),
-    customerMessage: draft.customerMessage,
+    customerMessage,
     totalCents: calculateTotal(draft.lineItems),
     aiModel: getProposalModel(),
     promptTokens,
