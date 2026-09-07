@@ -1,26 +1,40 @@
 import {
-  int,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  pgEnum,
+  pgTable,
+  serial,
   text,
   timestamp,
   varchar,
-} from "drizzle-orm/mysql-core";
+} from "drizzle-orm/pg-core";
 
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const userRoleEnum = pgEnum("role", ["user", "admin"]);
+export const proposalStatusEnum = pgEnum("proposal_status", [
+  "draft",
+  "approved",
+]);
+export const integrationStatusEnum = pgEnum("integration_status", [
+  "sent",
+  "failed",
+]);
+
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: userRoleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
-export const proposals = mysqlTable("proposals", {
-  id: int("id").autoincrement().primaryKey(),
+export const proposals = pgTable("proposals", {
+  id: serial("id").primaryKey(),
   customerName: varchar("customerName", { length: 160 }).notNull(),
   customerEmail: varchar("customerEmail", { length: 320 }),
   customerPhone: varchar("customerPhone", { length: 40 }),
@@ -29,7 +43,7 @@ export const proposals = mysqlTable("proposals", {
   desiredStartDate: varchar("desiredStartDate", { length: 80 }),
   budgetRange: varchar("budgetRange", { length: 80 }),
   siteNotes: text("siteNotes").notNull(),
-  status: mysqlEnum("status", ["draft", "approved"]).default("draft").notNull(),
+  status: proposalStatusEnum("status").default("draft").notNull(),
   projectSummary: text("projectSummary").notNull(),
   lineItemsJson: text("lineItemsJson").notNull(),
   assumptionsJson: text("assumptionsJson").notNull(),
@@ -37,22 +51,25 @@ export const proposals = mysqlTable("proposals", {
   unansweredQuestionsJson: text("unansweredQuestionsJson").notNull(),
   riskFlagsJson: text("riskFlagsJson").notNull(),
   customerMessage: text("customerMessage").notNull(),
-  totalCents: int("totalCents").notNull(),
+  totalCents: integer("totalCents").notNull(),
   aiModel: varchar("aiModel", { length: 80 }).notNull(),
-  promptTokens: int("promptTokens"),
-  completionTokens: int("completionTokens"),
-  version: int("version").default(1).notNull(),
+  promptTokens: integer("promptTokens"),
+  completionTokens: integer("completionTokens"),
+  version: integer("version").default(1).notNull(),
   approvedAt: timestamp("approvedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
 });
 
-export const integrationEvents = mysqlTable("integration_events", {
-  id: int("id").autoincrement().primaryKey(),
-  proposalId: int("proposalId").notNull(),
+export const integrationEvents = pgTable("integration_events", {
+  id: serial("id").primaryKey(),
+  proposalId: integer("proposalId").notNull(),
   destination: varchar("destination", { length: 255 }).notNull(),
-  status: mysqlEnum("status", ["sent", "failed"]).notNull(),
-  httpStatus: int("httpStatus"),
+  status: integrationStatusEnum("status").notNull(),
+  httpStatus: integer("httpStatus"),
   responseSnippet: text("responseSnippet"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

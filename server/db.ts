@@ -1,5 +1,7 @@
 import { desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import * as schema from "../drizzle/schema";
 import {
   InsertProposal,
   InsertUser,
@@ -14,7 +16,8 @@ let _db: ReturnType<typeof drizzle> | null = null;
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      const sql = neon(process.env.DATABASE_URL);
+      _db = drizzle({ client: sql, schema });
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -56,12 +59,22 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
 
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  await db
+    .insert(users)
+    .values(values)
+    .onConflictDoUpdate({
+      target: users.openId,
+      set: updateSet,
+    });
 }
 
 export async function getUserByOpenId(openId: string) {
   const db = await requireDb();
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
   return result[0];
 }
 
@@ -72,20 +85,31 @@ export async function listProposalRows() {
 
 export async function getProposalRow(id: number) {
   const db = await requireDb();
-  const result = await db.select().from(proposals).where(eq(proposals.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(proposals)
+    .where(eq(proposals.id, id))
+    .limit(1);
   return result[0];
 }
 
 export async function createProposalRow(values: InsertProposal) {
   const db = await requireDb();
-  const result = await db.insert(proposals).values(values);
-  return getProposalRow(Number(result[0].insertId));
+  const result = await db.insert(proposals).values(values).returning();
+  return result[0];
 }
 
-export async function updateProposalRow(id: number, values: Partial<InsertProposal>) {
+export async function updateProposalRow(
+  id: number,
+  values: Partial<InsertProposal>
+) {
   const db = await requireDb();
-  await db.update(proposals).set(values).where(eq(proposals.id, id));
-  return getProposalRow(id);
+  const result = await db
+    .update(proposals)
+    .set(values)
+    .where(eq(proposals.id, id))
+    .returning();
+  return result[0];
 }
 
 export async function createIntegrationEvent(values: {
