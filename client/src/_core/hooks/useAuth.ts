@@ -1,7 +1,7 @@
 import { startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
-import { useCallback, useEffect, useMemo } from "react";
+import { useEffect } from "react";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -27,7 +27,7 @@ export function useAuth(options?: UseAuthOptions) {
     },
   });
 
-  const logout = useCallback(async () => {
+  const logout = async () => {
     try {
       await logoutMutation.mutateAsync();
     } catch (error: unknown) {
@@ -39,40 +39,27 @@ export function useAuth(options?: UseAuthOptions) {
       }
       throw error;
     } finally {
-      // Clear the Preview auto-login token mirrored into sessionStorage, so
-      // header-based sessions (Safari ITP / WebView) are logged out too. The
-      // backend cookie is cleared by the logout mutation.
+      // Clear auto-login token mirrored into sessionStorage, so
+      // header-based sessions are logged out too. The backend
+      // cookie is cleared by the logout mutation.
       try {
-        sessionStorage.removeItem("manus-cookie");
+        sessionStorage.removeItem("auth-token");
+        sessionStorage.removeItem("session-cookie");
       } catch {}
       utils.auth.me.setData(undefined, null);
       await utils.auth.me.invalidate();
     }
-  }, [logoutMutation, utils]);
+  };
 
-  const state = useMemo(() => {
-    localStorage.setItem(
-      "manus-runtime-user-info",
-      JSON.stringify(meQuery.data)
-    );
-    return {
-      user: meQuery.data ?? null,
-      loading: meQuery.isLoading || logoutMutation.isPending,
-      error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: Boolean(meQuery.data),
-    };
-  }, [
-    meQuery.data,
-    meQuery.error,
-    meQuery.isLoading,
-    logoutMutation.error,
-    logoutMutation.isPending,
-  ]);
+  const user = meQuery.data ?? null;
+  const loading = meQuery.isLoading || logoutMutation.isPending;
+  const error = meQuery.error ?? logoutMutation.error ?? null;
+  const isAuthenticated = Boolean(meQuery.data);
 
   useEffect(() => {
     if (!redirectOnUnauthenticated) return;
     if (meQuery.isLoading || logoutMutation.isPending) return;
-    if (state.user) return;
+    if (user) return;
     if (typeof window === "undefined") return;
     if (redirectPath && window.location.pathname === redirectPath) return;
 
@@ -87,11 +74,14 @@ export function useAuth(options?: UseAuthOptions) {
     redirectPath,
     logoutMutation.isPending,
     meQuery.isLoading,
-    state.user,
+    user,
   ]);
 
   return {
-    ...state,
+    user,
+    loading,
+    error,
+    isAuthenticated,
     refresh: () => meQuery.refetch(),
     logout,
   };
