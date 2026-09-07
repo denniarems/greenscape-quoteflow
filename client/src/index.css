@@ -246,3 +246,41 @@ textarea {
     transition-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
   }
 }
+
+@media print {
+  @page {
+    margin: 1.2cm;
+    size: letter portrait;
+  }
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .app-header,
+  .pipeline-panel,
+  .screen-only,
+  button,
+  [data-sonner-toaster],
+  nav {
+    display: none !important;
+  }
+  .app-shell {
+    display: block !important;
+    min-height: 0 !important;
+  }
+  main {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .printable-proposal {
+    display: block !important;
+  }
+  .print-avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}

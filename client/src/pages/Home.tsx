@@ -7,12 +7,16 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
+  Copy,
   FileCheck2,
   Inbox,
   Leaf,
   Loader2,
+  Mail,
   MessageSquareText,
+  Phone,
   Plus,
+  Printer,
   RefreshCw,
   Save,
   Send,
@@ -462,12 +466,27 @@ function ProposalWorkspace({
   const [draft, setDraft] = useState<EditableProposalFields>(() =>
     toEditable(proposal)
   );
+  const [copiedMessage, setCopiedMessage] = useState(false);
   const utils = trpc.useUtils();
   const disabled = proposal.status === "approved";
   const events = trpc.proposal.integrationEvents.useQuery(
     { proposalId: proposal.id },
     { enabled: proposal.status === "approved" }
   );
+
+  const handleCopyMessage = () => {
+    if (!draft.customerMessage) return;
+    navigator.clipboard.writeText(draft.customerMessage);
+    setCopiedMessage(true);
+    toast.success("Client message copied to clipboard", {
+      description: "Ready to paste into SMS, email, or GHL CRM.",
+    });
+    setTimeout(() => setCopiedMessage(false), 2000);
+  };
+
+  const handleExportPdf = () => {
+    window.print();
+  };
 
   useEffect(
     () => setDraft(toEditable(proposal)),
@@ -513,44 +532,104 @@ function ProposalWorkspace({
     JSON.stringify(draft) !== JSON.stringify(toEditable(proposal));
 
   return (
-    <div className="mx-auto max-w-6xl px-5 py-5 sm:px-8 lg:py-7">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="mb-2 flex items-center gap-2">
-            <Badge
-              className={
-                disabled
-                  ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
-                  : "bg-amber-100 text-amber-900 hover:bg-amber-100"
-              }
-            >
-              {disabled ? (
-                <CheckCircle2 className="mr-1 h-3 w-3" />
-              ) : (
-                <Clock3 className="mr-1 h-3 w-3" />
+    <>
+      <div className="screen-only mx-auto max-w-6xl px-5 py-5 sm:px-8 lg:py-7">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="mb-2 flex items-center gap-2">
+              <Badge
+                className={
+                  disabled
+                    ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                    : "bg-amber-100 text-amber-900 hover:bg-amber-100"
+                }
+              >
+                {disabled ? (
+                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                ) : (
+                  <Clock3 className="mr-1 h-3 w-3" />
+                )}
+                {disabled ? "Approved" : "Awaiting approval"}
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                Proposal #{proposal.id} · v{proposal.version}
+              </span>
+              {disabled && proposal.approvedAt && (
+                <span className="text-xs text-muted-foreground">
+                  · Approved {new Date(proposal.approvedAt).toLocaleDateString()}
+                </span>
               )}
-              {disabled ? "Approved" : "Awaiting approval"}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              Proposal #{proposal.id} · v{proposal.version}
-            </span>
+            </div>
+            <h1 className="font-display truncate text-3xl font-semibold tracking-tight">
+              {proposal.customerName}
+            </h1>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+              <span>{proposal.projectAddress}</span>
+              <span>·</span>
+              <span>{proposal.projectType}</span>
+              {proposal.customerPhone && (
+                <>
+                  <span>·</span>
+                  <a
+                    href={`tel:${proposal.customerPhone}`}
+                    className="inline-flex items-center gap-1 hover:text-primary transition-colors"
+                  >
+                    <Phone className="h-3.5 w-3.5" />
+                    <span>{proposal.customerPhone}</span>
+                  </a>
+                </>
+              )}
+              {proposal.customerEmail && (
+                <>
+                  <span>·</span>
+                  <a
+                    href={`mailto:${proposal.customerEmail}`}
+                    className="inline-flex items-center gap-1 hover:text-primary transition-colors"
+                  >
+                    <Mail className="h-3.5 w-3.5" />
+                    <span>{proposal.customerEmail}</span>
+                  </a>
+                </>
+              )}
+            </div>
           </div>
-          <h1 className="font-display truncate text-3xl font-semibold tracking-tight">
-            {proposal.customerName}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {proposal.projectAddress} · {proposal.projectType}
-          </p>
+          <div className="flex flex-col items-end gap-2">
+            <div className="text-right">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Proposed investment
+              </p>
+              <p className="mt-1 font-display text-3xl font-semibold text-primary">
+                {dollars(editedTotal)}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyMessage}
+                title="Copy client cover note"
+                className="h-8 gap-1.5 text-xs"
+              >
+                {copiedMessage ? (
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                <span>{copiedMessage ? "Copied" : "Copy message"}</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportPdf}
+                title="Print or save proposal as PDF"
+                className="h-8 gap-1.5 text-xs"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>Export PDF</span>
+              </Button>
+            </div>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Proposed investment
-          </p>
-          <p className="mt-1 font-display text-3xl font-semibold text-primary">
-            {dollars(editedTotal)}
-          </p>
-        </div>
-      </div>
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
         <div className="flow-step complete">
@@ -668,19 +747,38 @@ function ProposalWorkspace({
               </Field>
             </TabsContent>
             <TabsContent value="message" className="mt-5">
-              <Field label="Customer-facing cover note">
-                <Textarea
-                  disabled={disabled}
-                  value={draft.customerMessage}
-                  onChange={e =>
-                    setDraft(current => ({
-                      ...current,
-                      customerMessage: e.target.value,
-                    }))
-                  }
-                  className="min-h-[420px] leading-7"
-                />
-              </Field>
+              <div className="mb-2 flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground/75">
+                  Customer-facing cover note
+                </Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={handleCopyMessage}
+                >
+                  {copiedMessage ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 text-emerald-600" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3.5 w-3.5" /> Copy message
+                    </>
+                  )}
+                </Button>
+              </div>
+              <Textarea
+                disabled={disabled}
+                value={draft.customerMessage}
+                onChange={e =>
+                  setDraft(current => ({
+                    ...current,
+                    customerMessage: e.target.value,
+                  }))
+                }
+                className="min-h-[420px] leading-7"
+              />
             </TabsContent>
             <TabsContent value="source" className="mt-5">
               <div className="rounded-xl bg-[#f6f2e9] p-5 text-sm leading-7 text-foreground/75 whitespace-pre-wrap">
@@ -689,14 +787,14 @@ function ProposalWorkspace({
             </TabsContent>
           </Tabs>
 
-          {!disabled && (
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-5">
-              <p className="text-xs text-muted-foreground">
-                Generated by {proposal.aiModel} ·{" "}
-                {proposal.promptTokens?.toLocaleString() || "—"} input /{" "}
-                {proposal.completionTokens?.toLocaleString() || "—"} output
-                tokens
-              </p>
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border/70 pt-5">
+            <p className="text-xs text-muted-foreground">
+              Generated by {proposal.aiModel} ·{" "}
+              {proposal.promptTokens?.toLocaleString() || "—"} input /{" "}
+              {proposal.completionTokens?.toLocaleString() || "—"} output
+              tokens
+            </p>
+            {!disabled && (
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -724,8 +822,8 @@ function ProposalWorkspace({
                   {hasUnsavedChanges ? "Save changes first" : "Approve & send"}
                 </Button>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </Card>
 
         <div className="space-y-4">
@@ -843,6 +941,193 @@ function ProposalWorkspace({
         </div>
       </div>
     </div>
+
+    {/* Printable Proposal Template for Export PDF / Print */}
+    <div className="printable-proposal hidden print:block bg-white text-gray-950 p-6 max-w-4xl mx-auto font-sans leading-relaxed">
+      {/* Header with Greenscape Pro Branding */}
+      <div className="border-b-2 border-emerald-800 pb-5 mb-6 flex justify-between items-start">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-8 w-8 rounded-lg bg-emerald-800 text-white flex items-center justify-center font-bold text-base">
+              G
+            </span>
+            <span className="text-2xl font-bold tracking-tight text-emerald-950">
+              Greenscape Pro
+            </span>
+          </div>
+          <p className="text-xs font-semibold text-gray-700 mt-1 uppercase tracking-wider">
+            Premium Phoenix Landscape & Hardscape Design-Build
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            ROC #341892 · Licensed, Bonded & Insured · Phoenix, AZ
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="inline-block px-3 py-1 rounded bg-emerald-50 text-emerald-900 font-bold text-xs uppercase tracking-wider border border-emerald-200">
+            {proposal.status === "approved" ? "Official Proposal" : "Proposal Draft"}
+          </div>
+          <p className="text-sm font-semibold text-gray-900 mt-2">
+            Proposal #{proposal.id} (v{proposal.version})
+          </p>
+          <p className="text-xs text-gray-500">
+            Date: {new Date(proposal.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+          </p>
+        </div>
+      </div>
+
+      {/* Client & Project Details */}
+      <div className="grid grid-cols-2 gap-6 p-4 rounded-lg bg-gray-50 border border-gray-200 mb-6 text-sm print-avoid-break">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+            Prepared For
+          </p>
+          <p className="font-bold text-gray-950 text-base">{proposal.customerName}</p>
+          <p className="text-gray-700">{proposal.projectAddress}</p>
+          {proposal.customerPhone && (
+            <p className="text-gray-600 text-xs mt-1">Phone: {proposal.customerPhone}</p>
+          )}
+          {proposal.customerEmail && (
+            <p className="text-gray-600 text-xs">Email: {proposal.customerEmail}</p>
+          )}
+        </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">
+            Project Overview
+          </p>
+          <p className="font-semibold text-gray-950">{proposal.projectType}</p>
+          {proposal.desiredStartDate && (
+            <p className="text-gray-700 text-xs mt-1">
+              <span className="font-medium">Target Schedule:</span> {proposal.desiredStartDate}
+            </p>
+          )}
+          {proposal.budgetRange && (
+            <p className="text-gray-700 text-xs">
+              <span className="font-medium">Budget Target:</span> {proposal.budgetRange}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Cover Message / Note */}
+      {draft.customerMessage && (
+        <div className="mb-6 p-4 rounded-lg border-l-4 border-emerald-700 bg-emerald-50/40 text-sm text-gray-800 leading-relaxed print-avoid-break">
+          <p className="font-semibold text-xs uppercase tracking-wider text-emerald-900 mb-1">
+            A Note from Greenscape Pro
+          </p>
+          <p className="italic">"{draft.customerMessage}"</p>
+        </div>
+      )}
+
+      {/* Project Scope Summary */}
+      {draft.projectSummary && (
+        <div className="mb-6 print-avoid-break">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5 border-b border-gray-200 pb-1">
+            Project Scope Summary
+          </h3>
+          <p className="text-xs text-gray-800 leading-relaxed">
+            {draft.projectSummary}
+          </p>
+        </div>
+      )}
+
+      {/* Itemized Line Items Table */}
+      <div className="mb-6">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2 border-b border-gray-200 pb-1">
+          Itemized Scope of Work
+        </h3>
+        <table className="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr className="border-b-2 border-gray-300 text-[10px] font-bold uppercase tracking-wider text-gray-600 bg-gray-50">
+              <th className="py-2 px-3">Description</th>
+              <th className="py-2 px-3">Category</th>
+              <th className="py-2 px-3 text-right">Qty</th>
+              <th className="py-2 px-3">Unit</th>
+              <th className="py-2 px-3 text-right">Unit Price</th>
+              <th className="py-2 px-3 text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {draft.lineItems.map((item, idx) => (
+              <tr key={idx}>
+                <td className="py-2 px-3">
+                  <p className="font-medium text-gray-950">{item.description}</p>
+                  {item.sourceNote && item.sourceNote !== "Site walk scope note" && (
+                    <p className="text-[10px] text-gray-500 italic mt-0.5">{item.sourceNote}</p>
+                  )}
+                </td>
+                <td className="py-2 px-3 text-gray-600">{item.category}</td>
+                <td className="py-2 px-3 text-right font-medium text-gray-800 tabular-nums">{item.quantity}</td>
+                <td className="py-2 px-3 text-gray-600">{item.unit}</td>
+                <td className="py-2 px-3 text-right text-gray-700 tabular-nums">{dollars(item.unitPriceCents)}</td>
+                <td className="py-2 px-3 text-right font-semibold text-gray-950 tabular-nums">
+                  {dollars(Math.round(item.quantity * item.unitPriceCents))}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-emerald-800 bg-emerald-50 font-bold">
+              <td colSpan={5} className="py-2.5 px-3 text-right text-xs uppercase tracking-wider text-emerald-950">
+                Total Proposed Investment:
+              </td>
+              <td className="py-2.5 px-3 text-right text-sm text-emerald-950 tabular-nums">
+                {dollars(editedTotal)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Assumptions & Exclusions */}
+      {(draft.assumptions.length > 0 || draft.exclusions.length > 0) && (
+        <div className="grid grid-cols-2 gap-4 mb-6 text-xs print-avoid-break">
+          {draft.assumptions.length > 0 && (
+            <div className="p-3 rounded border border-gray-200 bg-gray-50">
+              <p className="font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                Project Assumptions
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-gray-700">
+                {draft.assumptions.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {draft.exclusions.length > 0 && (
+            <div className="p-3 rounded border border-gray-200 bg-gray-50">
+              <p className="font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                Exclusions
+              </p>
+              <ul className="list-disc list-inside space-y-0.5 text-gray-700">
+                {draft.exclusions.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Acceptance & Authorization Block */}
+      <div className="mt-8 pt-6 border-t border-gray-300 print-avoid-break">
+        <p className="text-[11px] text-gray-500 mb-6 leading-relaxed">
+          This proposal is valid for 30 calendar days from the date of issue. Acceptance of this proposal indicates approval of the estimated scope, specifications, allowances, and investment terms outlined above.
+        </p>
+        <div className="grid grid-cols-2 gap-12 text-xs">
+          <div>
+            <div className="border-b border-gray-400 h-8 mb-1.5" />
+            <p className="font-bold text-gray-800">Client Acceptance Signature</p>
+            <p className="text-gray-500 mt-1">Date: ________________________</p>
+          </div>
+          <div>
+            <div className="border-b border-gray-400 h-8 mb-1.5" />
+            <p className="font-bold text-gray-800">Greenscape Pro Representative</p>
+            <p className="text-gray-500 mt-1">Date: ________________________</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </>
   );
 }
 
