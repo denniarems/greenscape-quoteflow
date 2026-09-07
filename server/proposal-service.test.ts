@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { Proposal, ProposalLineItem } from "../shared/types";
 import {
+  buildSubstantiveCustomerMessage,
   calculateTotal,
   editableSchema,
   evaluateGuardrails,
@@ -132,6 +133,46 @@ describe("model response validation resilience", () => {
 
     const parsed = parseGeneratedProposal(rawProposal);
     expect(parsed.customerMessage).toContain("Thank you for the opportunity");
+  });
+
+  it("detects stub placeholder customerMessage like 'Customized cover note: Thank you Olivia!' and falls back", () => {
+    const rawProposal = {
+      projectSummary: "Modern front yard redesign.",
+      lineItems: lines,
+      assumptions: [],
+      exclusions: [],
+      unansweredQuestions: [],
+      riskFlags: [],
+      customerMessage: "Customized cover note: Thank you Olivia!",
+    };
+
+    const parsed = parseGeneratedProposal(rawProposal);
+    expect(parsed.customerMessage).toContain("Thank you for the opportunity");
+  });
+
+  it("builds a personalized, substantive customer message from input details when message is stub or empty", () => {
+    const generated = buildSubstantiveCustomerMessage(
+      "Customized cover note: Thank you Olivia!",
+      {
+        customerName: "Olivia Ramirez",
+        projectType: "Paver patio and pergola",
+        projectAddress: "4821 E Desert Vista Trail",
+      }
+    );
+
+    expect(generated).toContain("Dear Olivia,");
+    expect(generated).toContain("Paver patio and pergola at 4821 E Desert Vista Trail");
+    expect(generated).toContain("transparent line-item investment breakdown");
+  });
+
+  it("preserves an authentic, substantive custom cover note", () => {
+    const custom =
+      "Dear Marcus, thank you for inviting us to assess your property. We are thrilled to help build your new custom outdoor living space and pool deck.";
+    const result = buildSubstantiveCustomerMessage(custom, {
+      customerName: "Marcus Vance",
+    });
+
+    expect(result).toBe(custom);
   });
 
   it("provides fallback sourceNote when line item sourceNote is missing or blank", () => {
