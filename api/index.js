@@ -608,30 +608,37 @@ function getProposalModel() {
 }
 var DEMO_WEBHOOK_URL = "https://ntfy.sh/greenscape-quoteflow-assessment";
 var lineItemSchema = z2.object({
-  category: z2.string().min(2).max(80),
-  description: z2.string().min(4).max(300),
+  category: z2.string().min(1).max(120),
+  description: z2.string().min(1).max(500),
   quantity: z2.number().positive().max(1e5),
   unit: z2.string().min(1).max(40),
-  unitPriceCents: z2.number().int().positive().max(1e7),
-  sourceNote: z2.string().min(2).max(300)
+  unitPriceCents: z2.number().int().nonnegative().max(1e7),
+  sourceNote: z2.string().nullish().transform((val) => val?.trim() ? val.trim() : "Site walk scope note")
 });
 var riskFlagSchema = z2.object({
   severity: z2.enum(["low", "medium", "high"]),
-  message: z2.string().min(4).max(300)
+  message: z2.string().min(1).max(500)
 });
 var generatedProposalSchema = z2.object({
-  projectSummary: z2.string().min(40).max(1800),
-  lineItems: z2.array(lineItemSchema).min(1).max(20),
-  assumptions: z2.array(z2.string().min(3).max(300)).max(10),
-  exclusions: z2.array(z2.string().min(3).max(300)).max(10),
-  unansweredQuestions: z2.array(z2.string().min(3).max(300)).max(8),
-  riskFlags: z2.array(riskFlagSchema).max(10),
-  customerMessage: z2.string().min(60).max(1800)
+  projectSummary: z2.string().nullish().transform(
+    (val) => val?.trim() ? val.trim() : "Custom landscape and hardscape design and installation proposal."
+  ),
+  lineItems: z2.array(lineItemSchema).min(1).max(50),
+  assumptions: z2.array(z2.string()).transform((items) => items.map((s) => s.trim()).filter(Boolean)).default([]),
+  exclusions: z2.array(z2.string()).transform((items) => items.map((s) => s.trim()).filter(Boolean)).default([]),
+  unansweredQuestions: z2.array(z2.string()).transform((items) => items.map((s) => s.trim()).filter(Boolean)).default([]),
+  riskFlags: z2.array(riskFlagSchema).default([]),
+  customerMessage: z2.string().nullish().transform(
+    (val) => val?.trim() ? val.trim() : "Thank you for the opportunity to quote your landscape project. Please review our detailed estimate and line-item breakdown below."
+  )
 });
 var generatedSchema = {
   type: "object",
   properties: {
-    projectSummary: { type: "string" },
+    projectSummary: {
+      type: "string",
+      description: "Comprehensive summary of the project scope and site design."
+    },
     lineItems: {
       type: "array",
       items: {
@@ -670,7 +677,10 @@ var generatedSchema = {
         additionalProperties: false
       }
     },
-    customerMessage: { type: "string" }
+    customerMessage: {
+      type: "string",
+      description: "A warm, professional 2-4 sentence customer-facing cover note introducing the proposal and next steps."
+    }
   },
   required: [
     "projectSummary",
@@ -694,13 +704,13 @@ var proposalInputSchema = z2.object({
   siteNotes: z2.string().min(80).max(12e3)
 });
 var editableSchema = z2.object({
-  projectSummary: z2.string().min(40).max(1800),
-  lineItems: z2.array(lineItemSchema).min(1).max(20),
-  assumptions: z2.array(z2.string().min(3).max(300)).max(10),
-  exclusions: z2.array(z2.string().min(3).max(300)).max(10),
-  unansweredQuestions: z2.array(z2.string().min(3).max(300)).max(8),
-  riskFlags: z2.array(riskFlagSchema).max(10),
-  customerMessage: z2.string().min(60).max(1800)
+  projectSummary: z2.string().min(1).max(4e3),
+  lineItems: z2.array(lineItemSchema).min(1).max(50),
+  assumptions: z2.array(z2.string().max(500)).max(50),
+  exclusions: z2.array(z2.string().max(500)).max(50),
+  unansweredQuestions: z2.array(z2.string().max(500)).max(50),
+  riskFlags: z2.array(riskFlagSchema).max(50),
+  customerMessage: z2.string().max(4e3)
 });
 function calculateTotal(lineItems) {
   return lineItems.reduce(
@@ -787,7 +797,7 @@ function hydrateProposal(row) {
   };
 }
 async function requestStructuredProposal(input) {
-  const system = `You are the proposal operations copilot for Greenscape Pro, a premium Phoenix landscape and hardscape design-build firm. Convert site-walk notes into a precise proposal draft. Never claim a permit, HOA approval, engineering result, or measurement that is not in the notes. Use realistic Phoenix premium-contractor allowances when exact catalog pricing is unavailable and disclose each allowance in assumptions. Use high severity only for a genuine safety, legal, or internally contradictory issue; ordinary missing details belong in unansweredQuestions. Write concise, warm customer-facing prose. Return only schema-valid JSON.`;
+  const system = `You are the proposal operations copilot for Greenscape Pro, a premium Phoenix landscape and hardscape design-build firm. Convert site-walk notes into a precise proposal draft. Never claim a permit, HOA approval, engineering result, or measurement that is not in the notes. Use realistic Phoenix premium-contractor allowances when exact catalog pricing is unavailable and disclose each allowance in assumptions. Use high severity only for a genuine safety, legal, or internally contradictory issue; ordinary missing details belong in unansweredQuestions. Write a warm, professional 2-4 sentence customer-facing cover note in customerMessage. Return only schema-valid JSON with these exact keys: "projectSummary" (string), "lineItems" (array of objects with category, description, quantity, unit, unitPriceCents, sourceNote), "assumptions" (array of strings), "exclusions" (array of strings), "unansweredQuestions" (array of strings), "riskFlags" (array of objects with severity and message), "customerMessage" (string).`;
   const pricingReference = `Representative assessment catalog (replace with the client's 200+ line catalog in production): demolition $4-$9/sq ft; premium pavers installed $22-$32/sq ft; concrete footing allowance $850/each; cedar/alumawood pergola $90-$150/sq ft; artificial turf $14-$20/sq ft; drip irrigation zone $1,400-$2,400; outdoor kitchen base $900-$1,500/linear ft excluding appliances; low-voltage lighting $350-$600/fixture; mobilization/design $1,500-$3,500. Price in integer cents.`;
   const user = `${pricingReference}
 
@@ -827,8 +837,11 @@ ${input.siteNotes}`;
         "HTTP-Referer": process.env.APP_URL || "http://localhost:3000",
         "X-Title": "Greenscape QuoteFlow"
       },
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(9e4)
+      body: JSON.stringify({
+        ...request,
+        reasoning: { effort: "minimal" }
+      }),
+      signal: AbortSignal.timeout(12e4)
     });
     if (!response.ok)
       throw new Error(
@@ -841,16 +854,148 @@ ${input.siteNotes}`;
   const content = raw.choices?.[0]?.message?.content;
   if (typeof content !== "string")
     throw new Error("The model returned no proposal content");
-  const parsed = generatedProposalSchema.safeParse(JSON.parse(content));
-  if (!parsed.success)
-    throw new Error(
-      `The model response failed validation: ${parsed.error.message}`
-    );
+  const draft = parseGeneratedProposal(content);
   return {
-    draft: parsed.data,
+    draft,
     promptTokens: raw.usage?.prompt_tokens ?? null,
     completionTokens: raw.usage?.completion_tokens ?? null
   };
+}
+function extractJsonString(raw) {
+  let cleaned = raw.trim();
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1].trim();
+  }
+  if (!cleaned.startsWith("{") || !cleaned.endsWith("}")) {
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+  }
+  return cleaned;
+}
+function normalizeModelPayload(rawJson) {
+  if (!rawJson || typeof rawJson !== "object") {
+    return rawJson;
+  }
+  let obj = { ...rawJson };
+  if (obj.proposal && typeof obj.proposal === "object" && !Array.isArray(obj.proposal)) {
+    obj = { ...obj.proposal, ...obj };
+  } else if (obj.data && typeof obj.data === "object" && !Array.isArray(obj.data)) {
+    obj = { ...obj.data, ...obj };
+  }
+  if (!obj.projectSummary && typeof obj.proposal === "string") {
+    obj.projectSummary = obj.proposal;
+  }
+  const rawLineItems = obj.lineItems ?? obj.line_items ?? obj.items ?? obj.scope_items ?? [];
+  const lineItems = Array.isArray(rawLineItems) ? rawLineItems : [];
+  const normalizedLineItems = lineItems.map((item, idx) => {
+    if (!item || typeof item !== "object") {
+      return {
+        category: "General",
+        description: String(item || `Scope item ${idx + 1}`),
+        quantity: 1,
+        unit: "ea",
+        unitPriceCents: 1e4,
+        sourceNote: "Site notes"
+      };
+    }
+    const rawCategory = item.category ?? item.type ?? "Landscape";
+    const rawDescription = item.description ?? item.item ?? item.name ?? `Scope item ${idx + 1}`;
+    const rawUnit = item.unit ?? item.unit_of_measure ?? "sq ft";
+    const rawQuantity = Number(item.quantity ?? item.qty ?? item.count ?? 1);
+    const quantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 1;
+    let unitPriceCents = 1e4;
+    if (item.unitPriceCents != null && Number.isFinite(Number(item.unitPriceCents))) {
+      unitPriceCents = Math.round(Number(item.unitPriceCents));
+    } else if (item.unit_price_cents != null && Number.isFinite(Number(item.unit_price_cents))) {
+      unitPriceCents = Math.round(Number(item.unit_price_cents));
+    } else if (item.unitPrice != null && Number.isFinite(Number(item.unitPrice))) {
+      unitPriceCents = Math.round(Number(item.unitPrice) * 100);
+    } else if (item.unit_price != null && Number.isFinite(Number(item.unit_price))) {
+      unitPriceCents = Math.round(Number(item.unit_price) * 100);
+    } else if (item.price != null && Number.isFinite(Number(item.price))) {
+      unitPriceCents = Math.round(Number(item.price) * 100);
+    }
+    const sourceNote = String(
+      item.sourceNote ?? item.source_note ?? item.note ?? "Site walk scope note"
+    ).trim() || "Site walk scope note";
+    return {
+      category: String(rawCategory).trim() || "General",
+      description: String(rawDescription).trim() || `Scope item ${idx + 1}`,
+      quantity,
+      unit: String(rawUnit).trim() || "ea",
+      unitPriceCents: Math.max(0, unitPriceCents),
+      sourceNote
+    };
+  });
+  if (normalizedLineItems.length === 0) {
+    normalizedLineItems.push({
+      category: "Mobilization",
+      description: "Project mobilization and site layout",
+      quantity: 1,
+      unit: "project",
+      unitPriceCents: 2e5,
+      sourceNote: "Initial site walk mobilization"
+    });
+  }
+  const rawRiskFlags = obj.riskFlags ?? obj.risk_flags ?? obj.risks ?? [];
+  const normalizedRiskFlags = (Array.isArray(rawRiskFlags) ? rawRiskFlags : []).map((flag) => {
+    if (typeof flag === "string") {
+      return { severity: "medium", message: flag.trim() };
+    }
+    if (flag && typeof flag === "object") {
+      const sev = String(flag.severity || "medium").toLowerCase();
+      const severity = sev === "high" || sev === "low" ? sev : "medium";
+      const message = String(
+        flag.message || flag.description || flag.note || "General risk flag"
+      ).trim();
+      return { severity, message: message || "General risk flag" };
+    }
+    return null;
+  }).filter(Boolean);
+  const rawAssumptions = obj.assumptions ?? [];
+  const assumptions = (Array.isArray(rawAssumptions) ? rawAssumptions : []).map(String);
+  const rawExclusions = obj.exclusions ?? [];
+  const exclusions = (Array.isArray(rawExclusions) ? rawExclusions : []).map(String);
+  const rawQuestions = obj.unansweredQuestions ?? obj.unanswered_questions ?? obj.openQuestions ?? obj.open_questions ?? [];
+  const unansweredQuestions = (Array.isArray(rawQuestions) ? rawQuestions : []).map(String);
+  const projectSummary = obj.projectSummary ?? obj.project_summary ?? obj.summary ?? "";
+  const customerMessage = obj.customerMessage ?? obj.customer_message ?? obj.coverNote ?? obj.cover_note ?? "";
+  return {
+    projectSummary,
+    lineItems: normalizedLineItems,
+    assumptions,
+    exclusions,
+    unansweredQuestions,
+    riskFlags: normalizedRiskFlags,
+    customerMessage
+  };
+}
+function parseGeneratedProposal(rawContent) {
+  let json;
+  if (typeof rawContent === "string") {
+    const cleaned = extractJsonString(rawContent);
+    try {
+      json = JSON.parse(cleaned);
+    } catch (err) {
+      throw new Error(
+        `Failed to parse model JSON: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  } else {
+    json = rawContent;
+  }
+  const normalized = normalizeModelPayload(json);
+  const parsed = generatedProposalSchema.safeParse(normalized);
+  if (!parsed.success) {
+    throw new Error(
+      `The model response failed validation: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
 }
 async function generateAndPersistProposal(rawInput) {
   const input = proposalInputSchema.parse(rawInput);

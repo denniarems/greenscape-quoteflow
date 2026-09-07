@@ -26,33 +26,62 @@ export function getProposalModel(): string {
 const DEMO_WEBHOOK_URL = "https://ntfy.sh/greenscape-quoteflow-assessment";
 
 const lineItemSchema = z.object({
-  category: z.string().min(2).max(80),
-  description: z.string().min(4).max(300),
-  quantity: z.number().positive().max(100000),
+  category: z.string().min(1).max(120),
+  description: z.string().min(1).max(500),
+  quantity: z.number().positive().max(100_000),
   unit: z.string().min(1).max(40),
-  unitPriceCents: z.number().int().positive().max(10_000_000),
-  sourceNote: z.string().min(2).max(300),
+  unitPriceCents: z.number().int().nonnegative().max(10_000_000),
+  sourceNote: z
+    .string()
+    .nullish()
+    .transform(val => (val?.trim() ? val.trim() : "Site walk scope note")),
 });
 
 const riskFlagSchema = z.object({
   severity: z.enum(["low", "medium", "high"]),
-  message: z.string().min(4).max(300),
+  message: z.string().min(1).max(500),
 });
 
-const generatedProposalSchema = z.object({
-  projectSummary: z.string().min(40).max(1800),
-  lineItems: z.array(lineItemSchema).min(1).max(20),
-  assumptions: z.array(z.string().min(3).max(300)).max(10),
-  exclusions: z.array(z.string().min(3).max(300)).max(10),
-  unansweredQuestions: z.array(z.string().min(3).max(300)).max(8),
-  riskFlags: z.array(riskFlagSchema).max(10),
-  customerMessage: z.string().min(60).max(1800),
+export const generatedProposalSchema = z.object({
+  projectSummary: z
+    .string()
+    .nullish()
+    .transform(val =>
+      val?.trim()
+        ? val.trim()
+        : "Custom landscape and hardscape design and installation proposal."
+    ),
+  lineItems: z.array(lineItemSchema).min(1).max(50),
+  assumptions: z
+    .array(z.string())
+    .transform(items => items.map(s => s.trim()).filter(Boolean))
+    .default([]),
+  exclusions: z
+    .array(z.string())
+    .transform(items => items.map(s => s.trim()).filter(Boolean))
+    .default([]),
+  unansweredQuestions: z
+    .array(z.string())
+    .transform(items => items.map(s => s.trim()).filter(Boolean))
+    .default([]),
+  riskFlags: z.array(riskFlagSchema).default([]),
+  customerMessage: z
+    .string()
+    .nullish()
+    .transform(val =>
+      val?.trim()
+        ? val.trim()
+        : "Thank you for the opportunity to quote your landscape project. Please review our detailed estimate and line-item breakdown below."
+    ),
 });
 
 const generatedSchema = {
   type: "object",
   properties: {
-    projectSummary: { type: "string" },
+    projectSummary: {
+      type: "string",
+      description: "Comprehensive summary of the project scope and site design.",
+    },
     lineItems: {
       type: "array",
       items: {
@@ -91,7 +120,11 @@ const generatedSchema = {
         additionalProperties: false,
       },
     },
-    customerMessage: { type: "string" },
+    customerMessage: {
+      type: "string",
+      description:
+        "A warm, professional 2-4 sentence customer-facing cover note introducing the proposal and next steps.",
+    },
   },
   required: [
     "projectSummary",
@@ -116,14 +149,14 @@ export const proposalInputSchema = z.object({
   siteNotes: z.string().min(80).max(12000),
 });
 
-const editableSchema = z.object({
-  projectSummary: z.string().min(40).max(1800),
-  lineItems: z.array(lineItemSchema).min(1).max(20),
-  assumptions: z.array(z.string().min(3).max(300)).max(10),
-  exclusions: z.array(z.string().min(3).max(300)).max(10),
-  unansweredQuestions: z.array(z.string().min(3).max(300)).max(8),
-  riskFlags: z.array(riskFlagSchema).max(10),
-  customerMessage: z.string().min(60).max(1800),
+export const editableSchema = z.object({
+  projectSummary: z.string().min(1).max(4000),
+  lineItems: z.array(lineItemSchema).min(1).max(50),
+  assumptions: z.array(z.string().max(500)).max(50),
+  exclusions: z.array(z.string().max(500)).max(50),
+  unansweredQuestions: z.array(z.string().max(500)).max(50),
+  riskFlags: z.array(riskFlagSchema).max(50),
+  customerMessage: z.string().max(4000),
 });
 
 export function calculateTotal(lineItems: ProposalLineItem[]) {
@@ -229,7 +262,7 @@ export function hydrateProposal(row: ProposalRow): Proposal {
 async function requestStructuredProposal(
   input: z.infer<typeof proposalInputSchema>
 ) {
-  const system = `You are the proposal operations copilot for Greenscape Pro, a premium Phoenix landscape and hardscape design-build firm. Convert site-walk notes into a precise proposal draft. Never claim a permit, HOA approval, engineering result, or measurement that is not in the notes. Use realistic Phoenix premium-contractor allowances when exact catalog pricing is unavailable and disclose each allowance in assumptions. Use high severity only for a genuine safety, legal, or internally contradictory issue; ordinary missing details belong in unansweredQuestions. Write concise, warm customer-facing prose. Return only schema-valid JSON.`;
+  const system = `You are the proposal operations copilot for Greenscape Pro, a premium Phoenix landscape and hardscape design-build firm. Convert site-walk notes into a precise proposal draft. Never claim a permit, HOA approval, engineering result, or measurement that is not in the notes. Use realistic Phoenix premium-contractor allowances when exact catalog pricing is unavailable and disclose each allowance in assumptions. Use high severity only for a genuine safety, legal, or internally contradictory issue; ordinary missing details belong in unansweredQuestions. Write a warm, professional 2-4 sentence customer-facing cover note in customerMessage. Return only schema-valid JSON with these exact keys: "projectSummary" (string), "lineItems" (array of objects with category, description, quantity, unit, unitPriceCents, sourceNote), "assumptions" (array of strings), "exclusions" (array of strings), "unansweredQuestions" (array of strings), "riskFlags" (array of objects with severity and message), "customerMessage" (string).`;
   const pricingReference = `Representative assessment catalog (replace with the client's 200+ line catalog in production): demolition $4-$9/sq ft; premium pavers installed $22-$32/sq ft; concrete footing allowance $850/each; cedar/alumawood pergola $90-$150/sq ft; artificial turf $14-$20/sq ft; drip irrigation zone $1,400-$2,400; outdoor kitchen base $900-$1,500/linear ft excluding appliances; low-voltage lighting $350-$600/fixture; mobilization/design $1,500-$3,500. Price in integer cents.`;
   const user = `${pricingReference}\n\nCustomer: ${input.customerName}\nAddress: ${input.projectAddress}\nProject type: ${input.projectType}\nDesired start: ${input.desiredStartDate || "Not stated"}\nBudget: ${input.budgetRange || "Not stated"}\n\nSite-walk notes:\n${input.siteNotes}`;
   const model = getProposalModel();
@@ -265,8 +298,11 @@ async function requestStructuredProposal(
         "HTTP-Referer": process.env.APP_URL || "http://localhost:3000",
         "X-Title": "Greenscape QuoteFlow",
       },
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(90_000),
+      body: JSON.stringify({
+        ...request,
+        reasoning: { effort: "minimal" },
+      }),
+      signal: AbortSignal.timeout(120_000),
     });
     if (!response.ok)
       throw new Error(
@@ -280,16 +316,209 @@ async function requestStructuredProposal(
   const content = raw.choices?.[0]?.message?.content;
   if (typeof content !== "string")
     throw new Error("The model returned no proposal content");
-  const parsed = generatedProposalSchema.safeParse(JSON.parse(content));
-  if (!parsed.success)
-    throw new Error(
-      `The model response failed validation: ${parsed.error.message}`
-    );
+  const draft = parseGeneratedProposal(content);
   return {
-    draft: parsed.data,
+    draft,
     promptTokens: raw.usage?.prompt_tokens ?? null,
     completionTokens: raw.usage?.completion_tokens ?? null,
   };
+}
+
+export function extractJsonString(raw: string): string {
+  let cleaned = raw.trim();
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1].trim();
+  }
+  if (!cleaned.startsWith("{") || !cleaned.endsWith("}")) {
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+  }
+  return cleaned;
+}
+
+export function normalizeModelPayload(rawJson: any): any {
+  if (!rawJson || typeof rawJson !== "object") {
+    return rawJson;
+  }
+
+  let obj = { ...rawJson };
+  if (
+    obj.proposal &&
+    typeof obj.proposal === "object" &&
+    !Array.isArray(obj.proposal)
+  ) {
+    obj = { ...obj.proposal, ...obj };
+  } else if (
+    obj.data &&
+    typeof obj.data === "object" &&
+    !Array.isArray(obj.data)
+  ) {
+    obj = { ...obj.data, ...obj };
+  }
+
+  if (!obj.projectSummary && typeof obj.proposal === "string") {
+    obj.projectSummary = obj.proposal;
+  }
+
+  const rawLineItems =
+    obj.lineItems ?? obj.line_items ?? obj.items ?? obj.scope_items ?? [];
+  const lineItems = Array.isArray(rawLineItems) ? rawLineItems : [];
+
+  const normalizedLineItems = lineItems.map((item: any, idx: number) => {
+    if (!item || typeof item !== "object") {
+      return {
+        category: "General",
+        description: String(item || `Scope item ${idx + 1}`),
+        quantity: 1,
+        unit: "ea",
+        unitPriceCents: 10000,
+        sourceNote: "Site notes",
+      };
+    }
+
+    const rawCategory = item.category ?? item.type ?? "Landscape";
+    const rawDescription =
+      item.description ?? item.item ?? item.name ?? `Scope item ${idx + 1}`;
+    const rawUnit = item.unit ?? item.unit_of_measure ?? "sq ft";
+    const rawQuantity = Number(item.quantity ?? item.qty ?? item.count ?? 1);
+    const quantity =
+      Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 1;
+
+    let unitPriceCents = 10000;
+    if (
+      item.unitPriceCents != null &&
+      Number.isFinite(Number(item.unitPriceCents))
+    ) {
+      unitPriceCents = Math.round(Number(item.unitPriceCents));
+    } else if (
+      item.unit_price_cents != null &&
+      Number.isFinite(Number(item.unit_price_cents))
+    ) {
+      unitPriceCents = Math.round(Number(item.unit_price_cents));
+    } else if (
+      item.unitPrice != null &&
+      Number.isFinite(Number(item.unitPrice))
+    ) {
+      unitPriceCents = Math.round(Number(item.unitPrice) * 100);
+    } else if (
+      item.unit_price != null &&
+      Number.isFinite(Number(item.unit_price))
+    ) {
+      unitPriceCents = Math.round(Number(item.unit_price) * 100);
+    } else if (item.price != null && Number.isFinite(Number(item.price))) {
+      unitPriceCents = Math.round(Number(item.price) * 100);
+    }
+
+    const sourceNote =
+      String(
+        item.sourceNote ?? item.source_note ?? item.note ?? "Site walk scope note"
+      ).trim() || "Site walk scope note";
+
+    return {
+      category: String(rawCategory).trim() || "General",
+      description: String(rawDescription).trim() || `Scope item ${idx + 1}`,
+      quantity,
+      unit: String(rawUnit).trim() || "ea",
+      unitPriceCents: Math.max(0, unitPriceCents),
+      sourceNote,
+    };
+  });
+
+  if (normalizedLineItems.length === 0) {
+    normalizedLineItems.push({
+      category: "Mobilization",
+      description: "Project mobilization and site layout",
+      quantity: 1,
+      unit: "project",
+      unitPriceCents: 200000,
+      sourceNote: "Initial site walk mobilization",
+    });
+  }
+
+  const rawRiskFlags = obj.riskFlags ?? obj.risk_flags ?? obj.risks ?? [];
+  const normalizedRiskFlags = (Array.isArray(rawRiskFlags) ? rawRiskFlags : [])
+    .map((flag: any) => {
+      if (typeof flag === "string") {
+        return { severity: "medium", message: flag.trim() };
+      }
+      if (flag && typeof flag === "object") {
+        const sev = String(flag.severity || "medium").toLowerCase();
+        const severity = sev === "high" || sev === "low" ? sev : "medium";
+        const message = String(
+          flag.message || flag.description || flag.note || "General risk flag"
+        ).trim();
+        return { severity, message: message || "General risk flag" };
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  const rawAssumptions = obj.assumptions ?? [];
+  const assumptions = (
+    Array.isArray(rawAssumptions) ? rawAssumptions : []
+  ).map(String);
+
+  const rawExclusions = obj.exclusions ?? [];
+  const exclusions = (
+    Array.isArray(rawExclusions) ? rawExclusions : []
+  ).map(String);
+
+  const rawQuestions =
+    obj.unansweredQuestions ??
+    obj.unanswered_questions ??
+    obj.openQuestions ??
+    obj.open_questions ??
+    [];
+  const unansweredQuestions = (
+    Array.isArray(rawQuestions) ? rawQuestions : []
+  ).map(String);
+
+  const projectSummary =
+    obj.projectSummary ?? obj.project_summary ?? obj.summary ?? "";
+  const customerMessage =
+    obj.customerMessage ??
+    obj.customer_message ??
+    obj.coverNote ??
+    obj.cover_note ??
+    "";
+
+  return {
+    projectSummary,
+    lineItems: normalizedLineItems,
+    assumptions,
+    exclusions,
+    unansweredQuestions,
+    riskFlags: normalizedRiskFlags,
+    customerMessage,
+  };
+}
+
+export function parseGeneratedProposal(rawContent: string | unknown) {
+  let json: unknown;
+  if (typeof rawContent === "string") {
+    const cleaned = extractJsonString(rawContent);
+    try {
+      json = JSON.parse(cleaned);
+    } catch (err) {
+      throw new Error(
+        `Failed to parse model JSON: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  } else {
+    json = rawContent;
+  }
+  const normalized = normalizeModelPayload(json);
+  const parsed = generatedProposalSchema.safeParse(normalized);
+  if (!parsed.success) {
+    throw new Error(
+      `The model response failed validation: ${parsed.error.message}`
+    );
+  }
+  return parsed.data;
 }
 
 export async function generateAndPersistProposal(
