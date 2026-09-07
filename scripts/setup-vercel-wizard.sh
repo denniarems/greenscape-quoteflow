@@ -194,16 +194,20 @@ banner "QuoteFlow Vercel Production Deployment Setup"
 
 # ── Stage 1: Codebase & Vercel Configuration Verification ─────────────────
 stage "Codebase & Vercel configuration verification"
-say "Verifying that vercel.json and api/index.ts are configured for serverless execution."
+say "Verifying that vercel.json and bundled serverless api/index.js are configured."
 if [[ ! -f "vercel.json" ]]; then
   warn "vercel.json missing! Creating default routing config..."
   printf '{\n  "version": 2,\n  "buildCommand": "bun run build",\n  "outputDirectory": "dist/public",\n  "rewrites": [\n    { "source": "/api/(.*)", "destination": "/api" },\n    { "source": "/(.*)", "destination": "/index.html" }\n  ]\n}\n' > vercel.json
 fi
 
-if [[ ! -f "api/index.ts" ]]; then
-  warn "api/index.ts missing! Creating serverless function adapter..."
+if [[ ! -f "api/index.js" ]]; then
+  note "Generating bundled api/index.js for Vercel serverless function..."
   mkdir -p api
-  printf 'import { createExpressApp } from "../server/_core/app";\n\nconst app = createExpressApp();\nexport default app;\n' > api/index.ts
+  if command -v bun >/dev/null 2>&1; then
+    bun run build
+  elif command -v pnpm >/dev/null 2>&1; then
+    pnpm run build
+  fi
 fi
 
 step "Checking TypeScript and project build before remote deployment..."
